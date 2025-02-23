@@ -2,12 +2,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import { notFound } from "next/navigation";
 import CodeEditor from "@/components/CodeEditor";
-import { Timer, BookOpen, Code, CheckCircle, XCircle, Settings, RefreshCcw } from "lucide-react";
+import { Timer, BookOpen, Settings, RefreshCcw, CheckCircle, XCircle } from "lucide-react";
 
-// Enhanced validator with more detailed feedback
+// Enhanced validator with detailed feedback
 async function validateSolution(code, testCases) {
   const results = [];
   let passedCount = 0;
@@ -55,7 +54,6 @@ async function validateSolution(code, testCases) {
 
 export default function ProblemDetail({ params }) {
   const { id } = params;
-  const { data: session } = useSession();
   const [problem, setProblem] = useState(null);
   const [code, setCode] = useState("// Write your solution here\n");
   const [results, setResults] = useState(null);
@@ -69,7 +67,7 @@ export default function ProblemDetail({ params }) {
   useEffect(() => {
     let interval;
     if (isRunning) {
-      interval = setInterval(() => setTimer(t => t + 1), 1000);
+      interval = setInterval(() => setTimer((t) => t + 1), 1000);
     }
     return () => clearInterval(interval);
   }, [isRunning]);
@@ -95,26 +93,20 @@ export default function ProblemDetail({ params }) {
     }
   };
 
+  // Updated submission handler without next-auth
   const handleSubmission = async (testResults) => {
-    if (!session) {
-      setResults({
-        type: "error",
-        message: "Please login to submit solutions"
-      });
-      return;
-    }
+    // Instead of using session data, use a dummy userId (or remove this logic if not saving submissions)
+    const submission = {
+      userId: "dummyUser", // replace or remove if not needed
+      problemId: id,
+      code,
+      language: "javascript",
+      status: testResults.correct ? "ACCEPTED" : "FAILED",
+      executionTime: testResults.results[0]?.executionTime || 0,
+      memoryUsed: testResults.results[0]?.memoryUsage || 0,
+    };
 
     try {
-      const submission = {
-        userId: session.user.id,
-        problemId: id,
-        code,
-        language: "javascript",
-        status: testResults.correct ? "ACCEPTED" : "FAILED",
-        executionTime: testResults.results[0]?.executionTime || 0,
-        memoryUsed: testResults.results[0]?.memoryUsage || 0,
-      };
-
       const response = await fetch("/api/submissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -126,9 +118,9 @@ export default function ProblemDetail({ params }) {
       setResults({
         type: "submit",
         ...testResults,
-        message: testResults.correct ? 
-          "Solution accepted! Your progress has been saved." : 
-          "Solution incorrect. Keep trying!"
+        message: testResults.correct
+          ? "Solution accepted! Your progress has been saved."
+          : "Solution incorrect. Keep trying!",
       });
 
       if (testResults.correct) {
@@ -136,10 +128,7 @@ export default function ProblemDetail({ params }) {
       }
     } catch (error) {
       console.error("Failed to save submission:", error);
-      setResults({
-        type: "error",
-        message: "Error saving your submission"
-      });
+      setResults({ type: "error", message: "Error saving your submission" });
     }
   };
 
@@ -148,7 +137,7 @@ export default function ProblemDetail({ params }) {
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   return (
@@ -183,7 +172,7 @@ export default function ProblemDetail({ params }) {
               <ul className="list-disc pl-4">
                 <li>Consider edge cases in your solution</li>
                 <li>Think about time and space complexity</li>
-                <li>Try to break down the problem into smaller steps</li>
+                <li>Break down the problem into smaller parts</li>
               </ul>
             </div>
           )}
@@ -240,10 +229,7 @@ export default function ProblemDetail({ params }) {
                   body: JSON.stringify(payload),
                 });
                 const data = await res.json();
-                setResults({
-                  type: "run",
-                  output: data.run.stdout,
-                });
+                setResults({ type: "run", output: data.run.stdout });
               }}
               className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition"
             >
@@ -253,10 +239,7 @@ export default function ProblemDetail({ params }) {
             <button
               onClick={async () => {
                 if (!problem.testCases?.length) {
-                  setResults({
-                    type: "error",
-                    message: "No test cases available for validation."
-                  });
+                  setResults({ type: "error", message: "No test cases available for validation." });
                   return;
                 }
                 const validation = await validateSolution(code, problem.testCases);
@@ -284,9 +267,7 @@ export default function ProblemDetail({ params }) {
                     ) : (
                       <XCircle className="w-6 h-6 text-red-500" />
                     )}
-                    <span>
-                      {results.message}
-                    </span>
+                    <span>{results.message}</span>
                   </div>
                   <div className="space-y-4">
                     {results.results.map((result, idx) => (
