@@ -53,7 +53,8 @@ async function validateSolution(code, testCases) {
 }
 
 export default function ProblemDetail({ params }) {
-  const { id } = params;
+    const { id } = React.use(params);
+
   const [problem, setProblem] = useState(null);
   const [code, setCode] = useState("// Write your solution here\n");
   const [results, setResults] = useState(null);
