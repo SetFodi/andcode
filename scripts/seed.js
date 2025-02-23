@@ -2,6 +2,7 @@
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 console.log("MONGODB_URI:", process.env.MONGODB_URI);
+
 const { default: clientPromise } = await import("../lib/mongodb.js");
 
 async function createCollections() {
@@ -27,7 +28,7 @@ async function createCollections() {
     });
     console.log("Created users collection");
   } catch (e) {
-    if (e.code !== 48) { // 48 is collection already exists
+    if (e.code !== 48) { // 48 means collection already exists
       console.error("Error creating users collection:", e);
     }
   }
@@ -88,9 +89,7 @@ async function seed() {
       category: "arrays",
       successRate: 85.5,
       testCases: [
-        { input: "3\n4", expectedOutput: "7" },
-        { input: "10\n20", expectedOutput: "30" },
-        { input: "-5\n8", expectedOutput: "3" }
+        { input: "3\n4", expectedOutput: "7" }
       ],
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -107,9 +106,7 @@ async function seed() {
       category: "strings",
       successRate: 78.2,
       testCases: [
-        { input: "hello", expectedOutput: "olleh" },
-        { input: "world", expectedOutput: "dlrow" },
-        { input: "leetcode", expectedOutput: "edocteel" }
+        { input: "hello", expectedOutput: "olleh" }
       ],
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -126,9 +123,7 @@ async function seed() {
       category: "strings",
       successRate: 72.8,
       testCases: [
-        { input: "racecar", expectedOutput: "true" },
-        { input: "hello", expectedOutput: "false" },
-        { input: "level", expectedOutput: "true" }
+        { input: "racecar", expectedOutput: "true" }
       ],
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -148,10 +143,6 @@ async function seed() {
         { 
           input: "[3,9,20,null,null,15,7]", 
           expectedOutput: "[[3],[9,20],[15,7]]" 
-        },
-        {
-          input: "[1]",
-          expectedOutput: "[[1]]"
         }
       ],
       createdAt: new Date(),
@@ -172,10 +163,6 @@ async function seed() {
         { 
           input: "[-2,1,-3,4,-1,2,1,-5,4]", 
           expectedOutput: "6" 
-        },
-        {
-          input: "[1,2,3,4]",
-          expectedOutput: "10"
         }
       ],
       createdAt: new Date(),
@@ -230,11 +217,10 @@ async function seed() {
       await db.collection("users").insertOne(sampleUser);
       console.log("Created sample user");
     } catch (e) {
-      if (e.code !== 11000) { // 11000 is duplicate key error
+      if (e.code !== 11000) { // Duplicate key error
         console.error("Error creating sample user:", e);
       }
     }
-
   } catch (error) {
     console.error("Error seeding data:", error);
   }
