@@ -3,9 +3,8 @@ import { ObjectId } from "mongodb";
 import clientPromise from "@/lib/mongodb";
 
 export async function GET(request, { params }) {
-  const { id } = await params; // Await the params
-
   try {
+    const { id } = params;
     const client = await clientPromise;
     const db = client.db("leetcode-clone");
     
@@ -17,7 +16,10 @@ export async function GET(request, { params }) {
       return new Response("Problem not found", { status: 404 });
     }
 
-    return new Response(JSON.stringify(problem), { status: 200 });
+    return new Response(JSON.stringify(problem), {
+      headers: { 'Content-Type': 'application/json' },
+      status: 200
+    });
   } catch (e) {
     return new Response("Failed to fetch problem", { status: 500 });
   }
