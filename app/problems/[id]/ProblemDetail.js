@@ -1,22 +1,20 @@
-// app/problems/[id]/ProblemDetail.js
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { notFound } from "next/navigation";
 import CodeEditor from "@/components/CodeEditor";
-import { Timer, BookOpen, Settings, RefreshCcw, CheckCircle, XCircle } from "lucide-react";
+import { Timer, BookOpen, RefreshCcw, CheckCircle, XCircle, ChevronRight, Terminal } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
-// Enhanced validator with detailed feedback
 async function validateSolution(code, testCases) {
-  // Validate that we have test cases
   if (!testCases || !Array.isArray(testCases) || testCases.length === 0) {
     throw new Error("No test cases available for validation");
   }
 
   const results = [];
   let passedCount = 0;
-  
+
   for (const [index, testCase] of testCases.entries()) {
     try {
       const payload = {
@@ -32,18 +30,18 @@ async function validateSolution(code, testCases) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      
+
       if (!res.ok) {
         throw new Error(`API error: ${res.status}`);
       }
-      
+
       const data = await res.json();
       const output = data.run.stdout.trim();
       const expected = testCase.expectedOutput.trim();
       const passed = output === expected;
-      
+
       if (passed) passedCount++;
-      
+
       results.push({
         testCase: index + 1,
         input: testCase.input,
@@ -84,7 +82,6 @@ export default function ProblemDetail({ params }) {
   const [results, setResults] = useState(null);
   const [timer, setTimer] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
-  const [theme, setTheme] = useState("vs-dark");
   const [fontSize, setFontSize] = useState(14);
   const [showHints, setShowHints] = useState(false);
   const [userNotes, setUserNotes] = useState("");
@@ -119,17 +116,62 @@ export default function ProblemDetail({ params }) {
     }
   };
 
-  // Updated submission handler to handle errors properly
+  const handleRunCode = async () => {
+    try {
+      const payload = {
+        language: "javascript",
+        version: "18.15.0",
+        files: [{ name: "main.js", content: code }],
+        stdin: "",
+        args: [],
+      };
+
+      const res = await fetch("https://emkc.org/api/v2/piston/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error(`API error: ${res.status}`);
+      }
+
+      const data = await res.json();
+      setResults({ type: "run", output: data.run.stdout });
+    } catch (error) {
+      console.error("Run code error:", error);
+      setResults({ type: "error", message: `Error running code: ${error.message}` });
+    }
+  };
+
+  const handleSubmitSolution = async () => {
+    try {
+      if (!problem.testCases?.length) {
+        setResults({ type: "error", message: "No test cases available for validation." });
+        return;
+      }
+
+      setIsSubmitting(true);
+      setResults({ type: "loading", message: "Testing your solution..." });
+
+      const validation = await validateSolution(code, problem.testCases);
+      await handleSubmission(validation);
+    } catch (error) {
+      console.error("Validation error:", error);
+      setResults({ type: "error", message: `Error: ${error.message}` });
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSubmission = async (testResults) => {
     try {
       setIsSubmitting(true);
-      
-      // Ensure userId is properly retrieved
+
       const userId = user ? (user._id || user.userId) : "anonymous";
-      console.log("User ID from auth:", userId); // Debug log
-      
+      console.log("User ID from auth:", userId);
+
       const submission = {
-        userId: userId, // Keep as string, we'll handle ObjectId in the API
+        userId: userId,
         problemId: id,
         code,
         language: "javascript",
@@ -137,22 +179,22 @@ export default function ProblemDetail({ params }) {
         executionTime: testResults.results[0]?.executionTime || 0,
         memoryUsed: testResults.results[0]?.memoryUsage || 0,
       };
-  
+
       console.log("Submission payload:", submission);
-  
+
       const response = await fetch("/api/submissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(submission),
       });
-  
+
       const responseData = await response.json();
       console.log("Submission response:", responseData);
-  
+
       if (!response.ok) {
         throw new Error(responseData.message || `Server error: ${response.status}`);
       }
-  
+
       setResults({
         type: "submit",
         ...testResults,
@@ -160,7 +202,7 @@ export default function ProblemDetail({ params }) {
           ? "Solution accepted! Your progress has been saved."
           : "Solution incorrect. Keep trying!",
       });
-  
+
       if (testResults.correct) {
         setIsRunning(false);
       }
@@ -174,9 +216,14 @@ export default function ProblemDetail({ params }) {
       setIsSubmitting(false);
     }
   };
-  
-  
-  if (!problem) return <div>Loading problem...</div>;
+
+  if (!problem) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+        <LoadingSpinner className="w-12 h-12 text-blue-500" />
+      </div>
+    );
+  }
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -185,185 +232,215 @@ export default function ProblemDetail({ params }) {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold">{problem.title}</h2>
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-2">
-            <Timer className="w-5 h-5" />
-            {formatTime(timer)}
-          </span>
-          <button 
-            onClick={() => setShowHints(!showHints)}
-            className="flex items-center gap-2 px-3 py-1 rounded bg-yellow-100 hover:bg-yellow-200"
-          >
-            <BookOpen className="w-4 h-4" />
-            Hints
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <div className="bg-gray-100 p-4 rounded mb-4">
-            <h3 className="font-bold mb-2">Problem Statement</h3>
-            <pre className="whitespace-pre-wrap text-sm">{problem.statement}</pre>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <nav className="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-2">
+              <a href="/problems" className="hover:text-blue-600 dark:hover:text-blue-400">Problems</a>
+              <ChevronRight className="w-4 h-4 mx-2" />
+              <span className="text-blue-600 dark:text-blue-400">{problem.title}</span>
+            </nav>
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100">{problem.title}</h1>
           </div>
-          
-          {showHints && (
-            <div className="bg-yellow-50 p-4 rounded mb-4">
-              <h3 className="font-bold mb-2">Hints</h3>
-              <ul className="list-disc pl-4">
-                <li>Consider edge cases in your solution</li>
-                <li>Think about time and space complexity</li>
-                <li>Break down the problem into smaller parts</li>
-              </ul>
+          <div className="flex items-center gap-4 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg shadow-sm">
+            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+              <Timer className="w-5 h-5" />
+              <span className="font-mono">{formatTime(timer)}</span>
             </div>
-          )}
-          
-          <div className="mb-4">
-            <textarea
-              className="w-full p-2 border rounded"
-              placeholder="Add your notes here..."
-              value={userNotes}
-              onChange={(e) => setUserNotes(e.target.value)}
-              rows="4"
-            />
+            <button 
+              onClick={() => setShowHints(!showHints)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:hover:bg-yellow-800/40 transition-colors"
+            >
+              <BookOpen className="w-5 h-5" />
+              <span className="text-sm font-medium">Hints</span>
+            </button>
           </div>
         </div>
 
-        <div>
-          <div className="flex justify-end gap-2 mb-2">
-            <button
-              onClick={() => setTheme(theme === "vs-dark" ? "light" : "vs-dark")}
-              className="p-2 rounded hover:bg-gray-200"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setCode("// Write your solution here\n")}
-              className="p-2 rounded hover:bg-gray-200"
-            >
-              <RefreshCcw className="w-5 h-5" />
-            </button>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Problem Section */}
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+              <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Problem Statement</h3>
+              <pre className="whitespace-pre-wrap text-gray-600 dark:text-gray-400 leading-relaxed">
+                {problem.statement}
+              </pre>
+            </div>
+
+            {showHints && (
+              <div className="bg-yellow-50/50 dark:bg-yellow-900/20 rounded-xl p-6 shadow-sm border border-yellow-100 dark:border-yellow-900/30">
+                <h3 className="text-lg font-semibold mb-3 text-yellow-800 dark:text-yellow-200">
+                  <BookOpen className="w-5 h-5 inline-block mr-2" />
+                  Hints & Guidance
+                </h3>
+                <ul className="space-y-3 text-yellow-700 dark:text-yellow-300">
+                  <li className="flex items-start">
+                    <span className="text-yellow-500 mr-2">•</span>
+                    Consider different edge cases and boundary conditions
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-yellow-500 mr-2">•</span>
+                    Analyze time and space complexity before implementing
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-yellow-500 mr-2">•</span>
+                    Break the problem into smaller, manageable functions
+                  </li>
+                </ul>
+              </div>
+            )}
+
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+              <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">Your Notes</h3>
+              <textarea
+                className="w-full h-32 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                placeholder="Jot down your thoughts, observations, or approach..."
+                value={userNotes}
+                onChange={(e) => setUserNotes(e.target.value)}
+              />
+            </div>
           </div>
 
-          <CodeEditor
-            initialCode={code}
-            language="javascript"
-            onChange={setCode}
-            theme={theme}
-            options={{ fontSize }}
-          />
-
-          <div className="flex gap-4 mt-4">
-            <button
-              onClick={async () => {
-                try {
-                  const payload = {
-                    language: "javascript",
-                    version: "18.15.0",
-                    files: [{ name: "main.js", content: code }],
-                    stdin: "",
-                    args: [],
-                  };
-
-                  const res = await fetch("https://emkc.org/api/v2/piston/execute", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
-                  });
-                  
-                  if (!res.ok) {
-                    throw new Error(`API error: ${res.status}`);
-                  }
-                  
-                  const data = await res.json();
-                  setResults({ type: "run", output: data.run.stdout });
-                } catch (error) {
-                  console.error("Run code error:", error);
-                  setResults({ type: "error", message: `Error running code: ${error.message}` });
-                }
-              }}
-              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition"
-              disabled={isSubmitting}
-            >
-              Run Code
-            </button>
-
-            <button
-              onClick={async () => {
-                try {
-                  if (!problem.testCases?.length) {
-                    setResults({ type: "error", message: "No test cases available for validation." });
-                    return;
-                  }
-                  
-                  setIsSubmitting(true);
-                  setResults({ type: "loading", message: "Testing your solution..." });
-                  
-                  const validation = await validateSolution(code, problem.testCases);
-                  await handleSubmission(validation);
-                } catch (error) {
-                  console.error("Validation error:", error);
-                  setResults({ type: "error", message: `Error: ${error.message}` });
-                  setIsSubmitting(false);
-                }
-              }}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Submitting..." : "Submit Solution"}
-            </button>
-          </div>
-
-          {results && (
-            <div className="mt-4 p-4 bg-gray-100 rounded">
-              {results.type === "loading" && (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
-                  <span>{results.message}</span>
+          {/* Coding Section */}
+          <div className="space-y-6">
+            <div className="rounded-xl overflow-hidden shadow-lg">
+              <div className="flex items-center justify-between bg-gray-800 dark:bg-gray-700 px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Terminal className="w-5 h-5 text-green-400" />
+                  <span className="font-mono text-sm text-gray-300">JavaScript</span>
                 </div>
-              )}
-              {results.type === "run" && (
-                <pre className="whitespace-pre-wrap">{results.output}</pre>
-              )}
-              {results.type === "error" && (
-                <div className="text-red-500">{results.message}</div>
-              )}
-              {results.type === "submit" && (
-                <div>
-                  <div className="flex items-center gap-2 mb-4">
-                    {results.correct ? (
-                      <CheckCircle className="w-6 h-6 text-green-500" />
-                    ) : (
-                      <XCircle className="w-6 h-6 text-red-500" />
-                    )}
-                    <span>{results.message}</span>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setCode("// Write your solution here\n")}
+                    className="p-2 hover:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors text-gray-300 hover:text-white"
+                  >
+                    <RefreshCcw className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+              <CodeEditor
+                initialCode={code}
+                language="javascript"
+                onChange={setCode}
+                fontSize={fontSize}
+              />
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                onClick={handleRunCode}
+                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-all"
+                disabled={isSubmitting}
+              >
+                <span>Run Code</span>
+              </button>
+              <button
+                onClick={handleSubmitSolution}
+                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <LoadingSpinner className="w-5 h-5" />
+                    <span>Submitting...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-5 h-5" />
+                    <span>Submit Solution</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {results && (
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                {results.type === "loading" && (
+                  <div className="flex items-center justify-center gap-3 py-4">
+                    <LoadingSpinner className="w-6 h-6 text-blue-500" />
+                    <span className="text-gray-600 dark:text-gray-400">{results.message}</span>
                   </div>
+                )}
+
+                {results.type === "run" && (
                   <div className="space-y-4">
-                    {results.results.map((result, idx) => (
-                      <div
-                        key={idx}
-                        className={`p-3 rounded ${
-                          result.passed ? "bg-green-100" : "bg-red-100"
-                        }`}
-                      >
-                        <div className="font-bold mb-1">Test Case {result.testCase}</div>
-                        <div className="text-sm">
-                          <div>Input: {result.input}</div>
-                          <div>Expected: {result.expected}</div>
-                          <div>Output: {result.output}</div>
-                          <div>Time: {result.executionTime}ms</div>
-                          <div>Memory: {result.memoryUsage}KB</div>
-                        </div>
-                      </div>
-                    ))}
+                    <div className="flex items-center gap-2 mb-4">
+                      <Terminal className="w-5 h-5 text-gray-500" />
+                      <h4 className="font-semibold text-gray-800 dark:text-gray-200">Execution Output</h4>
+                    </div>
+                    <pre className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg text-sm font-mono text-gray-800 dark:text-gray-300 whitespace-pre-wrap">
+                      {results.output || "No output"}
+                    </pre>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+
+                {results.type === "submit" && (
+                  <div className="space-y-6">
+                    <div className={`flex items-center gap-3 p-4 rounded-lg ${results.correct ? 
+                      'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 
+                      'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'}`}>
+                      {results.correct ? (
+                        <CheckCircle className="w-8 h-8 text-green-500" />
+                      ) : (
+                        <XCircle className="w-8 h-8 text-red-500" />
+                      )}
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                          {results.correct ? 'Solution Accepted!' : 'Submission Failed'}
+                        </h3>
+                        <p className="text-gray-600 dark:text-gray-400">{results.message}</p>
+                        <p className="mt-2 text-sm font-mono">
+                          Passed {results.passedCount}/{results.totalTests} test cases
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Test Cases</h4>
+                      <div className="space-y-3">
+                        {results.results.map((result, idx) => (
+                          <div key={idx} className={`p-4 rounded-lg border ${
+                            result.passed 
+                              ? 'border-green-100 dark:border-green-900/30 bg-green-50/50 dark:bg-green-900/10'
+                              : 'border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10'
+                          }`}>
+                            <div className="flex items-center gap-2 mb-2">
+                              {result.passed ? (
+                                <CheckCircle className="w-4 h-4 text-green-500" />
+                              ) : (
+                                <XCircle className="w-4 h-4 text-red-500" />
+                              )}
+                              <span className="font-medium">Case {idx + 1}</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div className="text-gray-600 dark:text-gray-400">Input:</div>
+                              <div className="font-mono">{result.input || "None"}</div>
+                              <div className="text-gray-600 dark:text-gray-400">Expected:</div>
+                              <div className="font-mono">{result.expected}</div>
+                              <div className="text-gray-600 dark:text-gray-400">Output:</div>
+                              <div className="font-mono">{result.output}</div>
+                            </div>
+                            <div className="flex gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
+                              <span>Time: {result.executionTime}ms</span>
+                              <span>Memory: {result.memoryUsage}KB</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {results.type === "error" && (
+                  <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                    <XCircle className="w-6 h-6 text-red-500" />
+                    <div className="text-red-600 dark:text-red-400">{results.message}</div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
