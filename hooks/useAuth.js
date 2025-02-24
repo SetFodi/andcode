@@ -1,22 +1,37 @@
 // hooks/useAuth.js
 import { useState, useEffect, createContext, useContext } from 'react';
+import { useRouter } from 'next/navigation';
 
 const AuthContext = createContext({});
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
-    // Check if there's a token in localStorage
-    const token = localStorage.getItem('token');
-    if (token) {
-      // Decode token and set user
-      const decoded = JSON.parse(atob(token.split('.')[1]));
-      setUser(decoded);
-    }
-    setLoading(false);
+    // Check for user session on component mount
+    checkUserSession();
   }, []);
+
+  const checkUserSession = async () => {
+    try {
+      // Make an API call to check the user's session
+      const res = await fetch('/api/auth/me', {
+        method: 'GET',
+        credentials: 'include', // Important for cookies
+      });
+      
+      if (res.ok) {
+        const userData = await res.json();
+        setUser(userData);
+      }
+    } catch (error) {
+      console.error('Session check error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const login = async (email, password) => {
     try {
@@ -24,16 +39,16 @@ export function AuthProvider({ children }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
+        credentials: 'include', // Important for cookies
       });
-
-      if (!res.ok) throw new Error('Login failed');
-
-      const { token } = await res.json();
-      localStorage.setItem('token', token);
-
-      // Decode token and set user
-      const decoded = JSON.parse(atob(token.split('.')[1]));
-      setUser(decoded);
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Login failed');
+      }
+      
+      const userData = await res.json();
+      setUser(userData.user);
       return true;
     } catch (error) {
       console.error('Login error:', error);
@@ -47,16 +62,16 @@ export function AuthProvider({ children }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, username }),
+        credentials: 'include', // Important for cookies
       });
-
-      if (!res.ok) throw new Error('Registration failed');
-
-      const { token } = await res.json();
-      localStorage.setItem('token', token);
-
-      // Decode token and set user
-      const decoded = JSON.parse(atob(token.split('.')[1]));
-      setUser(decoded);
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Registration failed');
+      }
+      
+      const userData = await res.json();
+      setUser(userData.user);
       return true;
     } catch (error) {
       console.error('Registration error:', error);
@@ -64,9 +79,19 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    setUser(null);
+  const logout = async () => {
+    try {
+      // Call logout API to clear the cookie
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      
+      setUser(null);
+      router.push('/auth/signin');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   return (

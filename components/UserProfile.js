@@ -17,6 +17,8 @@ export default function UserProfile({ userId }) {
     }
   });
   const [activeTab, setActiveTab] = useState('submissions');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchUserData();
@@ -25,31 +27,77 @@ export default function UserProfile({ userId }) {
 
   const fetchUserData = async () => {
     try {
-      const response = await fetch(`/api/users/${userId}`);
+      setIsLoading(true);
+      const response = await fetch(`/api/users/${userId}`, {
+        method: 'GET',
+        credentials: 'include', // Important for cookies
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user: ${response.status}`);
+      }
+      
       const data = await response.json();
       setProfile(data);
+      setError(null);
     } catch (error) {
       console.error('Failed to fetch user data:', error);
+      setError('Failed to load user profile data');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const fetchSubmissions = async () => {
     try {
-      const response = await fetch(`/api/users/${userId}/submissions`);
+      const response = await fetch(`/api/users/${userId}/submissions`, {
+        method: 'GET',
+        credentials: 'include', // Important for cookies
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch submissions: ${response.status}`);
+      }
+      
       const data = await response.json();
       setSubmissions(data);
       
       // Calculate statistics
-      const solved = new Set(data.filter(s => s.status === 'ACCEPTED').map(s => s.problemId));
-      const successRate = (data.filter(s => s.status === 'ACCEPTED').length / data.length) * 100;
+      if (data.length > 0) {
+        // Create a set of solved problem IDs to count unique problems
+        const solved = new Set(data
+          .filter(s => s.status === 'ACCEPTED')
+          .map(s => s.problemId));
+        
+        // Calculate success rate
+        const successRate = data.length > 0 
+          ? (data.filter(s => s.status === 'ACCEPTED').length / data.length) * 100 
+          : 0;
+        
+        // Count problems by difficulty
+        const difficultyMap = data.reduce((acc, sub) => {
+          if (sub.status === 'ACCEPTED' && sub.difficulty) {
+            acc[sub.difficulty.toLowerCase()] = (acc[sub.difficulty.toLowerCase()] || 0) + 1;
+          }
+          return acc;
+        }, {});
+        
+        setStats(prev => ({
+          ...prev,
+          totalSolved: solved.size,
+          successRate: successRate.toFixed(1),
+          difficultyBreakdown: {
+            easy: difficultyMap.easy || 0,
+            medium: difficultyMap.medium || 0,
+            hard: difficultyMap.hard || 0
+          }
+        }));
+      }
       
-      setStats(prev => ({
-        ...prev,
-        totalSolved: solved.size,
-        successRate: successRate.toFixed(1),
-      }));
+      setError(null);
     } catch (error) {
       console.error('Failed to fetch submissions:', error);
+      setError('Failed to load user submissions');
     }
   };
 
@@ -60,6 +108,28 @@ export default function UserProfile({ userId }) {
       day: 'numeric'
     });
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center p-12">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 p-4 rounded-lg">
+        <p className="text-red-500">{error}</p>
+        <button 
+          onClick={() => { fetchUserData(); fetchSubmissions(); }}
+          className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto p-4">
@@ -73,7 +143,11 @@ export default function UserProfile({ userId }) {
                   <img
                     src={profile.avatar || '/default-avatar.png'}
                     alt="Profile"
-                    className="w-full h-full rounded-full"
+                    className="w-full h-full rounded-full object-cover"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = '/default-avatar.png';
+                    }}
                   />
                 </div>
                 <h2 className="text-xl font-bold mb-2">{profile.username}</h2>
@@ -91,7 +165,7 @@ export default function UserProfile({ userId }) {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">Ranking</span>
-                  <span className="font-bold">#{stats.ranking}</span>
+                  <span className="font-bold">#{stats.ranking || 'N/A'}</span>
                 </div>
               </div>
             </div>
@@ -108,7 +182,10 @@ export default function UserProfile({ userId }) {
                   <div className="h-2 bg-gray-200 rounded">
                     <div
                       className="h-full bg-green-500 rounded"
-                      style={{ width: `${(stats.difficultyBreakdown.easy / stats.totalSolved) * 100}%` }}
+                      style={{ 
+                        width: stats.totalSolved ? 
+                          `${(stats.difficultyBreakdown.easy / stats.totalSolved) * 100}%` : '0%'
+                      }}
                     ></div>
                   </div>
                 </div>
@@ -120,7 +197,10 @@ export default function UserProfile({ userId }) {
                   <div className="h-2 bg-gray-200 rounded">
                     <div
                       className="h-full bg-yellow-500 rounded"
-                      style={{ width: `${(stats.difficultyBreakdown.medium / stats.totalSolved) * 100}%` }}
+                      style={{ 
+                        width: stats.totalSolved ? 
+                          `${(stats.difficultyBreakdown.medium / stats.totalSolved) * 100}%` : '0%'
+                      }}
                     ></div>
                   </div>
                 </div>
@@ -132,7 +212,10 @@ export default function UserProfile({ userId }) {
                   <div className="h-2 bg-gray-200 rounded">
                     <div
                       className="h-full bg-red-500 rounded"
-                      style={{ width: `${(stats.difficultyBreakdown.hard / stats.totalSolved) * 100}%` }}
+                      style={{ 
+                        width: stats.totalSolved ? 
+                          `${(stats.difficultyBreakdown.hard / stats.totalSolved) * 100}%` : '0%'
+                      }}
                     ></div>
                   </div>
                 </div>
@@ -171,51 +254,70 @@ export default function UserProfile({ userId }) {
               <div className="p-6">
                 {activeTab === 'submissions' ? (
                   <div className="space-y-4">
-                    {submissions.map((submission) => (
-                      <div
-                        key={submission._id}
-                        className="flex items-center justify-between p-4 bg-gray-50 rounded"
-                      >
-                        <div className="flex items-center">
-                          {submission.status === 'ACCEPTED' ? (
-                            <CheckCircle className="w-5 h-5 text-green-500 mr-3" />
-                          ) : (
-                            <XCircle className="w-5 h-5 text-red-500 mr-3" />
-                          )}
-                          <div>
-                            <a
-                              href={`/problems/${submission.problemId}`}
-                              className="font-medium hover:text-blue-600"
-                            >
-                              {submission.problemTitle}
-                            </a>
+                    {submissions.length > 0 ? (
+                      submissions.map((submission) => (
+                        <div
+                          key={submission._id}
+                          className="flex items-center justify-between p-4 bg-gray-50 rounded"
+                        >
+                          <div className="flex items-center">
+                            {submission.status === 'ACCEPTED' ? (
+                              <CheckCircle className="w-5 h-5 text-green-500 mr-3" />
+                            ) : (
+                              <XCircle className="w-5 h-5 text-red-500 mr-3" />
+                            )}
+                            <div>
+                              <a
+                                href={`/problems/${submission.problemId}`}
+                                className="font-medium hover:text-blue-600"
+                              >
+                                {submission.problemTitle || 'Problem #' + submission.problemId}
+                              </a>
+                              <div className="text-sm text-gray-500">
+                                {formatDate(submission.timestamp)}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm">
+                              Runtime: {submission.executionTime}ms
+                            </div>
                             <div className="text-sm text-gray-500">
-                              {formatDate(submission.timestamp)}
+                              Memory: {submission.memoryUsed}KB
                             </div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-sm">
-                            Runtime: {submission.executionTime}ms
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            Memory: {submission.memoryUsed}KB
-                          </div>
-                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        No submissions yet. Start solving problems!
                       </div>
-                    ))}
+                    )}
                   </div>
                 ) : (
                   <div className="h-96">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={submissions}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="date" />
-                        <YAxis />
-                        <Tooltip />
-                        <Bar dataKey="executionTime" fill="#8884d8" name="Runtime (ms)" />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    {submissions.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart 
+                          data={submissions.map(s => ({
+                            date: formatDate(s.timestamp),
+                            executionTime: s.executionTime,
+                            problemId: s.problemId,
+                            status: s.status
+                          }))}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="date" />
+                          <YAxis />
+                          <Tooltip />
+                          <Bar dataKey="executionTime" fill="#8884d8" name="Runtime (ms)" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-gray-500">
+                        No data available for visualization
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
