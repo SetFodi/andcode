@@ -5,43 +5,66 @@ import React, { useState, useEffect } from "react";
 import { notFound } from "next/navigation";
 import CodeEditor from "@/components/CodeEditor";
 import { Timer, BookOpen, Settings, RefreshCcw, CheckCircle, XCircle } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 // Enhanced validator with detailed feedback
 async function validateSolution(code, testCases) {
+  // Validate that we have test cases
+  if (!testCases || !Array.isArray(testCases) || testCases.length === 0) {
+    throw new Error("No test cases available for validation");
+  }
+
   const results = [];
   let passedCount = 0;
   
   for (const [index, testCase] of testCases.entries()) {
-    const payload = {
-      language: "javascript",
-      version: "18.15.0",
-      files: [{ name: "main.js", content: code }],
-      stdin: testCase.input,
-      args: [],
-    };
+    try {
+      const payload = {
+        language: "javascript",
+        version: "18.15.0",
+        files: [{ name: "main.js", content: code }],
+        stdin: testCase.input,
+        args: [],
+      };
 
-    const res = await fetch("https://emkc.org/api/v2/piston/execute", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    
-    const data = await res.json();
-    const output = data.run.stdout.trim();
-    const expected = testCase.expectedOutput.trim();
-    const passed = output === expected;
-    
-    if (passed) passedCount++;
-    
-    results.push({
-      testCase: index + 1,
-      input: testCase.input,
-      expected,
-      output,
-      passed,
-      executionTime: data.run.time || 0,
-      memoryUsage: data.run.memory || 0,
-    });
+      const res = await fetch("https://emkc.org/api/v2/piston/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      
+      if (!res.ok) {
+        throw new Error(`API error: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      const output = data.run.stdout.trim();
+      const expected = testCase.expectedOutput.trim();
+      const passed = output === expected;
+      
+      if (passed) passedCount++;
+      
+      results.push({
+        testCase: index + 1,
+        input: testCase.input,
+        expected,
+        output,
+        passed,
+        executionTime: data.run.time || 0,
+        memoryUsage: data.run.memory || 0,
+      });
+    } catch (error) {
+      console.error(`Test case ${index + 1} execution error:`, error);
+      results.push({
+        testCase: index + 1,
+        input: testCase.input,
+        expected: testCase.expectedOutput.trim(),
+        output: `Error: ${error.message}`,
+        passed: false,
+        executionTime: 0,
+        memoryUsage: 0,
+      });
+    }
   }
 
   return {
@@ -53,7 +76,8 @@ async function validateSolution(code, testCases) {
 }
 
 export default function ProblemDetail({ params }) {
-    const { id } = React.use(params);
+  const { id } = React.use(params);
+  const { user } = useAuth();
 
   const [problem, setProblem] = useState(null);
   const [code, setCode] = useState("// Write your solution here\n");
@@ -64,6 +88,7 @@ export default function ProblemDetail({ params }) {
   const [fontSize, setFontSize] = useState(14);
   const [showHints, setShowHints] = useState(false);
   const [userNotes, setUserNotes] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     let interval;
@@ -94,28 +119,37 @@ export default function ProblemDetail({ params }) {
     }
   };
 
-  // Updated submission handler without next-auth
+  // Updated submission handler to handle errors properly
   const handleSubmission = async (testResults) => {
-    // Instead of using session data, use a dummy userId (or remove this logic if not saving submissions)
-    const submission = {
-      userId: "dummyUser", // replace or remove if not needed
-      problemId: id,
-      code,
-      language: "javascript",
-      status: testResults.correct ? "ACCEPTED" : "FAILED",
-      executionTime: testResults.results[0]?.executionTime || 0,
-      memoryUsed: testResults.results[0]?.memoryUsage || 0,
-    };
-
     try {
+      setIsSubmitting(true);
+      
+      // Ensure userId is properly retrieved (either from auth or as anonymous)
+      const userId = user ? (user._id || user.userId) : "anonymous";
+      
+      const submission = {
+        userId: userId,
+        problemId: id,
+        code,
+        language: "javascript",
+        status: testResults.correct ? "ACCEPTED" : "FAILED",
+        executionTime: testResults.results[0]?.executionTime || 0,
+        memoryUsed: testResults.results[0]?.memoryUsage || 0,
+      };
+  
+      console.log("Saving submission:", submission);
+  
       const response = await fetch("/api/submissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(submission),
       });
-
-      if (!response.ok) throw new Error("Failed to save submission");
-
+  
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Server error: ${response.status}`);
+      }
+  
       setResults({
         type: "submit",
         ...testResults,
@@ -123,16 +157,22 @@ export default function ProblemDetail({ params }) {
           ? "Solution accepted! Your progress has been saved."
           : "Solution incorrect. Keep trying!",
       });
-
+  
       if (testResults.correct) {
         setIsRunning(false);
       }
     } catch (error) {
       console.error("Failed to save submission:", error);
-      setResults({ type: "error", message: "Error saving your submission" });
+      setResults({ 
+        type: "error", 
+        message: `Error saving your submission: ${error.message}` 
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
-
+  
+  
   if (!problem) return <div>Loading problem...</div>;
 
   const formatTime = (seconds) => {
@@ -160,7 +200,7 @@ export default function ProblemDetail({ params }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <div className="bg-gray-100 p-4 rounded mb-4">
             <h3 className="font-bold mb-2">Problem Statement</h3>
@@ -216,44 +256,72 @@ export default function ProblemDetail({ params }) {
           <div className="flex gap-4 mt-4">
             <button
               onClick={async () => {
-                const payload = {
-                  language: "javascript",
-                  version: "18.15.0",
-                  files: [{ name: "main.js", content: code }],
-                  stdin: "",
-                  args: [],
-                };
+                try {
+                  const payload = {
+                    language: "javascript",
+                    version: "18.15.0",
+                    files: [{ name: "main.js", content: code }],
+                    stdin: "",
+                    args: [],
+                  };
 
-                const res = await fetch("https://emkc.org/api/v2/piston/execute", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(payload),
-                });
-                const data = await res.json();
-                setResults({ type: "run", output: data.run.stdout });
+                  const res = await fetch("https://emkc.org/api/v2/piston/execute", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                  });
+                  
+                  if (!res.ok) {
+                    throw new Error(`API error: ${res.status}`);
+                  }
+                  
+                  const data = await res.json();
+                  setResults({ type: "run", output: data.run.stdout });
+                } catch (error) {
+                  console.error("Run code error:", error);
+                  setResults({ type: "error", message: `Error running code: ${error.message}` });
+                }
               }}
               className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition"
+              disabled={isSubmitting}
             >
               Run Code
             </button>
 
             <button
               onClick={async () => {
-                if (!problem.testCases?.length) {
-                  setResults({ type: "error", message: "No test cases available for validation." });
-                  return;
+                try {
+                  if (!problem.testCases?.length) {
+                    setResults({ type: "error", message: "No test cases available for validation." });
+                    return;
+                  }
+                  
+                  setIsSubmitting(true);
+                  setResults({ type: "loading", message: "Testing your solution..." });
+                  
+                  const validation = await validateSolution(code, problem.testCases);
+                  await handleSubmission(validation);
+                } catch (error) {
+                  console.error("Validation error:", error);
+                  setResults({ type: "error", message: `Error: ${error.message}` });
+                  setIsSubmitting(false);
                 }
-                const validation = await validateSolution(code, problem.testCases);
-                await handleSubmission(validation);
               }}
               className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+              disabled={isSubmitting}
             >
-              Submit Solution
+              {isSubmitting ? "Submitting..." : "Submit Solution"}
             </button>
           </div>
 
           {results && (
             <div className="mt-4 p-4 bg-gray-100 rounded">
+              {results.type === "loading" && (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
+                  <span>{results.message}</span>
+                </div>
+              )}
               {results.type === "run" && (
                 <pre className="whitespace-pre-wrap">{results.output}</pre>
               )}

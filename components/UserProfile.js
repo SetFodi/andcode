@@ -1,6 +1,5 @@
+'use client';
 import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Calendar, Award, GitBranch, Star, Clock, CheckCircle, XCircle } from 'lucide-react';
 
 export default function UserProfile({ userId }) {
   const [profile, setProfile] = useState(null);
@@ -8,7 +7,6 @@ export default function UserProfile({ userId }) {
   const [stats, setStats] = useState({
     totalSolved: 0,
     successRate: 0,
-    streak: 0,
     ranking: 0,
     difficultyBreakdown: {
       easy: 0,
@@ -21,83 +19,111 @@ export default function UserProfile({ userId }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchUserData();
-    fetchSubmissions();
+    if (userId) {
+      console.log("UserProfile: Starting data fetch for userId:", userId);
+      fetchUserData();
+    }
   }, [userId]);
 
   const fetchUserData = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/users/${userId}`, {
+      
+      // Fetch user profile
+      console.log(`UserProfile: Fetching user data with ID: ${userId}`);
+      
+      // Debugging log to check the exact URL being called
+      const profileUrl = `/api/users/${userId}`;
+      console.log(`UserProfile: Calling API at: ${profileUrl}`);
+      
+      const profileResponse = await fetch(profileUrl, {
         method: 'GET',
         credentials: 'include', // Important for cookies
       });
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch user: ${response.status}`);
+      console.log(`UserProfile: Profile API response status: ${profileResponse.status}`);
+      
+      if (!profileResponse.ok) {
+        // Enhanced error with more details to help debug
+        const errorText = await profileResponse.text().catch(() => 'No error details');
+        console.error(`UserProfile: API error response: ${errorText}`);
+        throw new Error(`Failed to fetch user profile: ${profileResponse.status}`);
       }
       
-      const data = await response.json();
-      setProfile(data);
+      const profileData = await profileResponse.json();
+      console.log("UserProfile: User data received", profileData);
+      setProfile(profileData);
+      
+      // After successfully loading profile, fetch statistics and submissions
+      await Promise.all([fetchStatistics(), fetchSubmissions()]);
+      
       setError(null);
     } catch (error) {
       console.error('Failed to fetch user data:', error);
-      setError('Failed to load user profile data');
+      setError(`Failed to load user profile data: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
   };
-
-  const fetchSubmissions = async () => {
+  
+  const fetchStatistics = async () => {
     try {
-      const response = await fetch(`/api/users/${userId}/submissions`, {
+      console.log(`UserProfile: Fetching statistics for userId: ${userId}`);
+      const statsResponse = await fetch(`/api/users/${userId}/statistics`, {
         method: 'GET',
-        credentials: 'include', // Important for cookies
+        credentials: 'include',
       });
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch submissions: ${response.status}`);
+      console.log(`UserProfile: Statistics API response status: ${statsResponse.status}`);
+      
+      if (!statsResponse.ok) {
+        console.warn(`UserProfile: Statistics fetch failed with status: ${statsResponse.status}`);
+        // Don't throw here, just return default stats
+        return;
       }
       
-      const data = await response.json();
-      setSubmissions(data);
+      const statsData = await statsResponse.json();
+      console.log("UserProfile: Statistics data received", statsData);
       
-      // Calculate statistics
-      if (data.length > 0) {
-        // Create a set of solved problem IDs to count unique problems
-        const solved = new Set(data
-          .filter(s => s.status === 'ACCEPTED')
-          .map(s => s.problemId));
-        
-        // Calculate success rate
-        const successRate = data.length > 0 
-          ? (data.filter(s => s.status === 'ACCEPTED').length / data.length) * 100 
-          : 0;
-        
-        // Count problems by difficulty
-        const difficultyMap = data.reduce((acc, sub) => {
-          if (sub.status === 'ACCEPTED' && sub.difficulty) {
-            acc[sub.difficulty.toLowerCase()] = (acc[sub.difficulty.toLowerCase()] || 0) + 1;
-          }
-          return acc;
-        }, {});
-        
-        setStats(prev => ({
-          ...prev,
-          totalSolved: solved.size,
-          successRate: successRate.toFixed(1),
-          difficultyBreakdown: {
-            easy: difficultyMap.easy || 0,
-            medium: difficultyMap.medium || 0,
-            hard: difficultyMap.hard || 0
-          }
-        }));
+      // Update stats from actual data
+      setStats({
+        totalSolved: statsData.totalSolved || 0,
+        successRate: statsData.successRate || 0,
+        ranking: statsData.ranking || 0,
+        difficultyBreakdown: {
+          easy: statsData.difficultyBreakdown?.easy || 0,
+          medium: statsData.difficultyBreakdown?.medium || 0,
+          hard: statsData.difficultyBreakdown?.hard || 0
+        }
+      });
+    } catch (error) {
+      console.error('Failed to fetch statistics:', error);
+      // Don't set main error - we want to show the profile even if stats fail
+    }
+  };
+  
+  const fetchSubmissions = async () => {
+    try {
+      console.log(`UserProfile: Fetching submissions for userId: ${userId}`);
+      const submissionsResponse = await fetch(`/api/users/${userId}/submissions?limit=10`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      
+      console.log(`UserProfile: Submissions API response status: ${submissionsResponse.status}`);
+      
+      if (!submissionsResponse.ok) {
+        console.warn(`UserProfile: Submissions fetch failed with status: ${submissionsResponse.status}`);
+        // Don't throw here, just return empty submissions
+        return;
       }
       
-      setError(null);
+      const submissionsData = await submissionsResponse.json();
+      console.log("UserProfile: Submissions data received", submissionsData);
+      setSubmissions(submissionsData.submissions || []);
     } catch (error) {
       console.error('Failed to fetch submissions:', error);
-      setError('Failed to load user submissions');
+      // Don't set main error - we want to show the profile even if submissions fail
     }
   };
 
@@ -108,6 +134,16 @@ export default function UserProfile({ userId }) {
       day: 'numeric'
     });
   };
+
+  // Calculate percentages for difficulty breakdown bars
+  const calculatePercentage = (value, total) => {
+    if (!total) return 0;
+    return (value / total) * 100;
+  };
+  
+  const totalProblems = stats.difficultyBreakdown.easy + 
+                       stats.difficultyBreakdown.medium + 
+                       stats.difficultyBreakdown.hard;
 
   if (isLoading) {
     return (
@@ -122,11 +158,17 @@ export default function UserProfile({ userId }) {
       <div className="bg-red-50 p-4 rounded-lg">
         <p className="text-red-500">{error}</p>
         <button 
-          onClick={() => { fetchUserData(); fetchSubmissions(); }}
+          onClick={() => fetchUserData()}
           className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
         >
           Retry
         </button>
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mt-4 p-4 bg-gray-100 rounded text-xs max-w-md overflow-auto">
+            <p>Debug Info:</p>
+            <pre>User ID: {userId || 'null'}</pre>
+          </div>
+        )}
       </div>
     );
   }
@@ -139,19 +181,19 @@ export default function UserProfile({ userId }) {
           <div className="md:col-span-1">
             <div className="bg-white rounded-lg shadow p-6">
               <div className="text-center">
-                <div className="w-24 h-24 rounded-full bg-gray-200 mx-auto mb-4">
-                  <img
-                    src={profile.avatar || '/default-avatar.png'}
-                    alt="Profile"
-                    className="w-full h-full rounded-full object-cover"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = '/default-avatar.png';
-                    }}
-                  />
+                <div className="w-24 h-24 rounded-full bg-gray-200 mx-auto mb-4 flex items-center justify-center">
+                  {profile.avatarUrl ? (
+                    <img 
+                      src={profile.avatarUrl} 
+                      alt={profile.username} 
+                      className="w-24 h-24 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-3xl">👤</span>
+                  )}
                 </div>
                 <h2 className="text-xl font-bold mb-2">{profile.username}</h2>
-                <p className="text-gray-600 mb-4">Joined {formatDate(profile.createdAt)}</p>
+                <p className="text-gray-600 mb-4">Joined {formatDate(profile.createdAt || new Date())}</p>
               </div>
               
               <div className="border-t pt-4 mt-4">
@@ -182,10 +224,7 @@ export default function UserProfile({ userId }) {
                   <div className="h-2 bg-gray-200 rounded">
                     <div
                       className="h-full bg-green-500 rounded"
-                      style={{ 
-                        width: stats.totalSolved ? 
-                          `${(stats.difficultyBreakdown.easy / stats.totalSolved) * 100}%` : '0%'
-                      }}
+                      style={{ width: `${calculatePercentage(stats.difficultyBreakdown.easy, totalProblems)}%` }}
                     ></div>
                   </div>
                 </div>
@@ -197,10 +236,7 @@ export default function UserProfile({ userId }) {
                   <div className="h-2 bg-gray-200 rounded">
                     <div
                       className="h-full bg-yellow-500 rounded"
-                      style={{ 
-                        width: stats.totalSolved ? 
-                          `${(stats.difficultyBreakdown.medium / stats.totalSolved) * 100}%` : '0%'
-                      }}
+                      style={{ width: `${calculatePercentage(stats.difficultyBreakdown.medium, totalProblems)}%` }}
                     ></div>
                   </div>
                 </div>
@@ -212,10 +248,7 @@ export default function UserProfile({ userId }) {
                   <div className="h-2 bg-gray-200 rounded">
                     <div
                       className="h-full bg-red-500 rounded"
-                      style={{ 
-                        width: stats.totalSolved ? 
-                          `${(stats.difficultyBreakdown.hard / stats.totalSolved) * 100}%` : '0%'
-                      }}
+                      style={{ width: `${calculatePercentage(stats.difficultyBreakdown.hard, totalProblems)}%` }}
                     ></div>
                   </div>
                 </div>
@@ -261,11 +294,13 @@ export default function UserProfile({ userId }) {
                           className="flex items-center justify-between p-4 bg-gray-50 rounded"
                         >
                           <div className="flex items-center">
-                            {submission.status === 'ACCEPTED' ? (
-                              <CheckCircle className="w-5 h-5 text-green-500 mr-3" />
-                            ) : (
-                              <XCircle className="w-5 h-5 text-red-500 mr-3" />
-                            )}
+                            <div className="mr-3">
+                              {submission.status === 'ACCEPTED' ? (
+                                <span className="text-green-500">✓</span>
+                              ) : (
+                                <span className="text-red-500">✗</span>
+                              )}
+                            </div>
                             <div>
                               <a
                                 href={`/problems/${submission.problemId}`}
@@ -280,10 +315,10 @@ export default function UserProfile({ userId }) {
                           </div>
                           <div className="text-right">
                             <div className="text-sm">
-                              Runtime: {submission.executionTime}ms
+                              Runtime: {submission.executionTime || 'N/A'}ms
                             </div>
                             <div className="text-sm text-gray-500">
-                              Memory: {submission.memoryUsed}KB
+                              Memory: {submission.memoryUsed || 'N/A'}MB
                             </div>
                           </div>
                         </div>
@@ -295,29 +330,13 @@ export default function UserProfile({ userId }) {
                     )}
                   </div>
                 ) : (
-                  <div className="h-96">
-                    {submissions.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart 
-                          data={submissions.map(s => ({
-                            date: formatDate(s.timestamp),
-                            executionTime: s.executionTime,
-                            problemId: s.problemId,
-                            status: s.status
-                          }))}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="date" />
-                          <YAxis />
-                          <Tooltip />
-                          <Bar dataKey="executionTime" fill="#8884d8" name="Runtime (ms)" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="flex items-center justify-center h-full text-gray-500">
-                        No data available for visualization
+                  <div>
+                    <div className="h-96 flex items-center justify-center">
+                      <div className="text-center text-gray-500">
+                        <p className="mb-4">Statistics data is still being gathered.</p>
+                        <p>Solve more problems to see your progress over time!</p>
                       </div>
-                    )}
+                    </div>
                   </div>
                 )}
               </div>
