@@ -160,50 +160,52 @@ export default function UserProfile({ userId, userData, submissions, statistics 
               </div>
 
               <div className="p-6">
-                {activeTab === "submissions" ? (
-                  <div className="space-y-4">
-                    {submissions.length > 0 ? (
-                      submissions.map((submission) => (
-                        <div
-                          key={submission._id}
-                          className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded"
-                        >
-                          <div className="flex items-center">
-                            <div className="mr-3">
-                              {submission.status === "ACCEPTED" ? (
-                                <span className="text-green-500">✓</span>
-                              ) : (
-                                <span className="text-red-500">✗</span>
-                              )}
-                            </div>
-                            <div>
-                              <a
-                                href={`/problems/${submission.problemId}`}
-                                className="font-medium hover:text-blue-600 dark:hover:text-blue-400"
-                              >
-                                {submission.problemTitle || `Problem #${submission.problemId}`} - {submission.language.charAt(0).toUpperCase() + submission.language.slice(1)}
-                              </a>
-                              <div className="text-sm text-gray-500 dark:text-gray-400">
-                                {formatDate(submission.timestamp)}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-sm">
-                              Runtime: {submission.executionTime || "N/A"}ms
-                            </div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                              Memory: {submission.memoryUsed || "N/A"}MB
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                        No submissions yet. Start solving problems!
-                      </div>
-                    )}
-                  </div>
+         
+              {activeTab === "submissions" ? (
+  <div className="space-y-4">
+    {submissions.length > 0 ? (
+      submissions.map((submission) => (
+        <div
+          key={submission._id}
+          className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded"
+        >
+          <div className="flex items-center">
+            <div className="mr-3">
+              {submission.status === "ACCEPTED" ? (
+                <span className="text-green-500">✓</span>
+              ) : (
+                <span className="text-red-500">✗</span>
+              )}
+            </div>
+            <div>
+              <a
+                href={`/problems/${submission.problemId}`}
+                className="font-medium hover:text-blue-600 dark:hover:text-blue-400"
+              >
+                {submission.problemTitle || `Problem #${submission.problemId}`} - {submission.language.charAt(0).toUpperCase() + submission.language.slice(1)}
+              </a>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                {formatDate(submission.timestamp)}
+              </div>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-sm">
+              Runtime: {submission.executionTime || "N/A"}ms
+            </div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              Memory: {submission.memoryUsed || "N/A"}MB
+            </div>
+          </div>
+        </div>
+      ))
+    ) : (
+      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+        No submissions yet. Start solving problems!
+      </div>
+    )}
+  </div>
+
                 ) : (
                   <div>
                     <div className="h-96 flex items-center justify-center">

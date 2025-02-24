@@ -1,71 +1,44 @@
-import { NextResponse } from 'next/server';
-import clientPromise from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
+import { NextResponse } from "next/server";
+import clientPromise from "@/lib/mongodb";
+import { ObjectId } from "mongodb";
 
 export async function GET(request, { params }) {
   try {
     const { userId } = await params;
-    
-    console.log(`API: /api/users/[userId] called with userId: ${userId}`);
-    
-    if (!userId) {
-      console.log('API: userId is missing');
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
+
+    if (!userId || typeof userId !== "string" || userId.length !== 24) {
+      return NextResponse.json({ error: "Invalid User ID format" }, { status: 400 });
     }
-    
-    // Connect to MongoDB using the clientPromise
-    console.log('API: Connecting to MongoDB...');
+
+    let objectId;
+    try {
+      objectId = new ObjectId(userId);
+    } catch (err) {
+      return NextResponse.json({ error: "Invalid User ID: must be a valid ObjectId" }, { status: 400 });
+    }
+
     const client = await clientPromise;
     const db = client.db("leetcode-clone");
-    
-    // Convert userId to ObjectId
-    let queryId;
-    try {
-      queryId = new ObjectId(userId);
-    } catch (e) {
-      console.log(`API: Invalid userId format: ${userId}`);
-      return NextResponse.json(
-        { error: 'Invalid user ID format' },
-        { status: 400 }
-      );
-    }
-    
-    // Find the user by ID
-    console.log(`API: Looking for user with ID: ${queryId}`);
-    const user = await db.collection('users').findOne(
-      { _id: queryId },
-      { projection: { password: 0 } }
-    );
-    
+
+    const user = await db.collection("users").findOne({ _id: objectId });
+
     if (!user) {
-      console.log(`API: User not found with ID: ${userId}`);
-      // For development, you can return mock data, but in production, return 404
-      // const mockUser = {
-      //   _id: userId,
-      //   username: `User${userId.substring(0, 5)}`,
-      //   email: `user${userId.substring(0, 5)}@example.com`,
-      //   createdAt: new Date().toISOString(),
-      //   updatedAt: new Date().toISOString(),
-      // };
-      // return NextResponse.json(mockUser);
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
-    
-    console.log(`API: User found: ${user.username || 'unnamed'}`);
-    // Convert ObjectId to string
+
+    // Ensure all required fields are present
     const userData = {
-      ...user,
       _id: user._id.toString(),
+      username: user.username || "Unknown User",
+      email: user.email || null,
+      createdAt: user.createdAt || new Date().toISOString(),
+      avatarUrl: user.avatarUrl || null,
     };
-    return NextResponse.json(userData);
+
+    console.log(`Fetched user data for ${userId}:`, userData);
+    return NextResponse.json(userData, { status: 200 });
   } catch (error) {
-    console.error('Error fetching user:', error);
-    return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
-      { status: 500 }
-    );
+    console.error("Error fetching user:", error);
+    return NextResponse.json({ error: "Failed to fetch user", details: error.message }, { status: 500 });
   }
 }

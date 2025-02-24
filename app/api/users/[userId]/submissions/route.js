@@ -15,25 +15,12 @@ export async function GET(request, { params }) {
     const client = await clientPromise;
     const db = client.db("leetcode-clone");
 
-    console.log(`Fetching submissions for userId: ${userId}`);
+    console.log(`Fetching all submissions for userId: ${userId}`);
 
-    // Aggregate to get the latest submission per problemId and language
     const submissions = await db
       .collection("submissions")
       .aggregate([
         { $match: { userId: new ObjectId(userId) } },
-        {
-          $sort: { timestamp: -1 }, // Sort by latest first
-        },
-        {
-          $group: {
-            _id: { problemId: "$problemId", language: "$language" }, // Group by problemId and language
-            latestSubmission: { $first: "$$ROOT" }, // Keep the latest submission
-          },
-        },
-        {
-          $replaceRoot: { newRoot: "$latestSubmission" }, // Flatten the grouped result
-        },
         {
           $lookup: {
             from: "problems",
@@ -67,7 +54,7 @@ export async function GET(request, { params }) {
       ])
       .toArray();
 
-    console.log(`Found ${submissions.length} unique submissions for userId: ${userId}`);
+    console.log(`Found ${submissions.length} submissions for userId: ${userId}`);
 
     if (submissions.length === 0) {
       return NextResponse.json({ submissions: [] }, { status: 200 });

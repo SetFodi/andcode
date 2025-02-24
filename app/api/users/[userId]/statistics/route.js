@@ -28,11 +28,18 @@ export async function GET(request, { params }) {
       });
     }
 
-    // Calculate success rate
-    const acceptedSubmissions = submissions.filter((sub) => sub.status === "ACCEPTED");
-    const uniqueProblemsSolved = new Set(acceptedSubmissions.map((sub) => sub.problemId.toString()));
-    const totalAttempts = submissions.length; // Total submissions (success + fail)
-    const successRate = totalAttempts > 0 ? (uniqueProblemsSolved.size / totalAttempts) * 100 : 0;
+    // Calculate total submissions and successful submissions
+    const totalSubmissions = submissions.length;
+    const successfulSubmissions = submissions.filter((sub) => sub.status === "ACCEPTED").length;
+    const uniqueProblemsSolved = new Set(
+      submissions.filter((sub) => sub.status === "ACCEPTED").map((sub) => sub.problemId.toString())
+    );
+    const uniqueProblemsAttempted = new Set(submissions.map((sub) => sub.problemId.toString()));
+
+    // Success rate: total successful submissions / total submissions
+    const successRate = totalSubmissions > 0 
+      ? (successfulSubmissions / totalSubmissions) * 100 
+      : 0;
 
     // Fetch problem difficulties for breakdown
     const problemIds = [...uniqueProblemsSolved].map((id) => new ObjectId(id));
@@ -57,9 +64,7 @@ export async function GET(request, { params }) {
           $group: {
             _id: "$userId",
             totalSubmissions: { $sum: 1 },
-            acceptedSubmissions: {
-              $sum: { $cond: [{ $eq: ["$status", "ACCEPTED"] }, 1, 0] },
-            },
+            successfulSubmissions: { $sum: { $cond: [{ $eq: ["$status", "ACCEPTED"] }, 1, 0] } },
             uniqueProblemsSolved: { $addToSet: "$problemId" },
           },
         },
@@ -69,13 +74,13 @@ export async function GET(request, { params }) {
             totalSolved: { $size: "$uniqueProblemsSolved" },
             successRate: {
               $multiply: [
-                { $divide: [{ $size: "$uniqueProblemsSolved" }, "$totalSubmissions"] },
+                { $divide: ["$successfulSubmissions", "$totalSubmissions"] },
                 100,
               ],
             },
           },
         },
-        { $sort: { totalSolved: -1, successRate: -1 } }, // Rank by totalSolved first, then successRate
+        { $sort: { totalSolved: -1, successRate: -1 } },
       ])
       .toArray();
 
@@ -83,6 +88,10 @@ export async function GET(request, { params }) {
       allUserStats.findIndex(
         (stat) => stat.userId.toString() === userId.toString()
       ) + 1;
+
+    console.log(
+      `User ${userId}: totalSubmissions=${totalSubmissions}, successfulSubmissions=${successfulSubmissions}, uniqueProblemsAttempted=${uniqueProblemsAttempted.size}, uniqueProblemsSolved=${uniqueProblemsSolved.size}, successRate=${successRate.toFixed(2)}%, ranking=${userRanking}`
+    );
 
     return NextResponse.json({
       totalSolved: uniqueProblemsSolved.size,
@@ -92,6 +101,6 @@ export async function GET(request, { params }) {
     });
   } catch (error) {
     console.error("Error calculating user statistics:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error", details: error.message }, { status: 500 });
   }
 }
