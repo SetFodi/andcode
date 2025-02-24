@@ -7,11 +7,10 @@ import { Timer, BookOpen, RefreshCcw, CheckCircle, XCircle, ChevronRight, Termin
 import { useAuth } from "@/hooks/useAuth";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
-// Supported languages with Piston API versions
 const LANGUAGES = [
-  { name: "JavaScript", value: "javascript", version: "18.15.0", extension: "js" },
-  { name: "Python", value: "python", version: "3.10.0", extension: "py" },
-  { name: "Java", value: "java", version: "15.0.2", extension: "java" },
+  { name: "JavaScript", value: "javascript", version: "18.15.0", extension: "js", initialCode: "// Write your solution here\n" },
+  { name: "Python", value: "python", version: "3.10.0", extension: "py", initialCode: "# Write your solution here\n" },
+  { name: "Java", value: "java", version: "15.0.2", extension: "java", initialCode: "public class Main {\n    public static void main(String[] args) {\n        // Write your solution here\n    }\n}" },
 ];
 
 async function validateSolution(code, testCases, language) {
@@ -42,11 +41,15 @@ async function validateSolution(code, testCases, language) {
       });
 
       if (!res.ok) {
-        throw new Error(`API error: ${res.status}`);
+        const errorText = await res.text();
+        throw new Error(`API error: ${res.status} - ${errorText}`);
       }
 
       const data = await res.json();
+      console.log(`Test case ${index + 1} response:`, data);
+
       const output = data.run.stdout.trim();
+      const stderr = data.run.stderr.trim();
       const expected = testCase.expectedOutput.trim();
       const passed = output === expected;
 
@@ -56,7 +59,7 @@ async function validateSolution(code, testCases, language) {
         testCase: index + 1,
         input: testCase.input,
         expected,
-        output,
+        output: stderr ? `Error: ${stderr}` : output,
         passed,
         executionTime: data.run.time || 0,
         memoryUsage: data.run.memory || 0,
@@ -70,7 +73,7 @@ async function validateSolution(code, testCases, language) {
         output: `Error: ${error.message}`,
         passed: false,
         executionTime: 0,
-        memoryUsage: 0,
+        memoryUsed: 0,
       });
     }
   }
@@ -88,7 +91,7 @@ export default function ProblemDetail({ params }) {
   const { user } = useAuth();
 
   const [problem, setProblem] = useState(null);
-  const [code, setCode] = useState("// Write your solution here\n");
+  const [code, setCode] = useState(LANGUAGES[0].initialCode); // Default to JavaScript initial code
   const [results, setResults] = useState(null);
   const [timer, setTimer] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
@@ -96,7 +99,7 @@ export default function ProblemDetail({ params }) {
   const [showHints, setShowHints] = useState(false);
   const [userNotes, setUserNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState("javascript"); // Default language
+  const [selectedLanguage, setSelectedLanguage] = useState("javascript");
 
   useEffect(() => {
     let interval;
@@ -111,6 +114,12 @@ export default function ProblemDetail({ params }) {
       fetchProblem();
     }
   }, [id]);
+
+  useEffect(() => {
+    // Update initial code when language changes
+    const newLang = LANGUAGES.find((lang) => lang.value === selectedLanguage);
+    setCode(newLang.initialCode);
+  }, [selectedLanguage]);
 
   const fetchProblem = async () => {
     try {
@@ -145,11 +154,19 @@ export default function ProblemDetail({ params }) {
       });
 
       if (!res.ok) {
-        throw new Error(`API error: ${res.status}`);
+        const errorText = await res.text();
+        throw new Error(`API error: ${res.status} - ${errorText}`);
       }
 
       const data = await res.json();
-      setResults({ type: "run", output: data.run.stdout });
+      console.log("Run code response:", data);
+
+      const output = data.run.stdout.trim();
+      const stderr = data.run.stderr.trim();
+      setResults({ 
+        type: "run", 
+        output: stderr ? `Error: ${stderr}` : (output || "No output") 
+      });
     } catch (error) {
       console.error("Run code error:", error);
       setResults({ type: "error", message: `Error running code: ${error.message}` });
@@ -187,7 +204,7 @@ export default function ProblemDetail({ params }) {
         userId: userId,
         problemId: id,
         code,
-        language: selectedLang.value, // Store selected language
+        language: selectedLang.value,
         status: testResults.correct ? "ACCEPTED" : "FAILED",
         executionTime: testResults.results[0]?.executionTime || 0,
         memoryUsed: testResults.results[0]?.memoryUsage || 0,
@@ -221,9 +238,9 @@ export default function ProblemDetail({ params }) {
       }
     } catch (error) {
       console.error("Failed to save submission:", error);
-      setResults({ 
-        type: "error", 
-        message: `Error saving your submission: ${error.message}` 
+      setResults({
+        type: "error",
+        message: `Error saving your submission: ${error.message}`,
       });
     } finally {
       setIsSubmitting(false);
@@ -333,7 +350,7 @@ export default function ProblemDetail({ params }) {
                 </div>
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => setCode("// Write your solution here\n")}
+                    onClick={() => setCode(LANGUAGES.find((lang) => lang.value === selectedLanguage).initialCode)}
                     className="p-2 hover:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors text-gray-300 hover:text-white"
                   >
                     <RefreshCcw className="w-5 h-5" />
