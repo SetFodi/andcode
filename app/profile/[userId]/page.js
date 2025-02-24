@@ -9,10 +9,14 @@ export default function UserProfilePage() {
   const params = useParams();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [userExists, setUserExists] = useState(false);
-  const [userData, setUserData] = useState(null);  // To store the user data
-  const [submissions, setSubmissions] = useState([]);  // To store the submissions data
-  const [statistics, setStatistics] = useState({});  // To store the statistics data
+  const [userData, setUserData] = useState(null);
+  const [submissions, setSubmissions] = useState([]);
+  const [statistics, setStatistics] = useState({
+    totalSolved: 0,
+    successRate: 0,
+    ranking: 0,
+    difficultyBreakdown: { easy: 0, medium: 0, hard: 0 }
+  });
   const userId = params?.userId;
 
   useEffect(() => {
@@ -24,29 +28,48 @@ export default function UserProfilePage() {
       }
 
       try {
-        const userResponse = await fetch(`/api/users/${userId}`);
-        const userData = await userResponse.json();
-        setUserData(userData);
-        
-        if (!userData) {
-          setError("User not found");
-          setUserExists(false);
-          return;
+        // Fetch user data
+        const userResponse = await fetch(`/api/users/${userId}`, {
+          credentials: 'include'
+        });
+        if (!userResponse.ok) {
+          const errorText = await userResponse.text();
+          throw new Error(`Failed to fetch user: ${errorText}`);
         }
+        const userData = await userResponse.json();
+        console.log("Fetched user data:", userData);
+        setUserData(userData);
 
-        const submissionsResponse = await fetch(`/api/users/${userId}/submissions?limit=10`);
+        // Fetch submissions
+        const submissionsResponse = await fetch(`/api/users/${userId}/submissions?limit=10`, {
+          credentials: 'include'
+        });
+        if (!submissionsResponse.ok) {
+          const errorText = await submissionsResponse.text();
+          console.error(`Failed to fetch submissions: ${errorText}`);
+          throw new Error(`Failed to fetch submissions: ${submissionsResponse.status}`);
+        }
         const submissionsData = await submissionsResponse.json();
-        setSubmissions(submissionsData);
+        console.log("Fetched submissions data:", submissionsData);
+        setSubmissions(submissionsData.submissions || submissionsData);
 
-        const statisticsResponse = await fetch(`/api/users/${userId}/statistics`);
+        // Fetch statistics
+        const statisticsResponse = await fetch(`/api/users/${userId}/statistics`, {
+          credentials: 'include'
+        });
+        if (!statisticsResponse.ok) {
+          const errorText = await statisticsResponse.text();
+          console.error(`Failed to fetch statistics: ${errorText}`);
+          throw new Error(`Failed to fetch statistics: ${statisticsResponse.status}`);
+        }
         const statisticsData = await statisticsResponse.json();
+        console.log("Fetched statistics data:", statisticsData);
         setStatistics(statisticsData);
 
-        setUserExists(true);
         setIsLoading(false);
       } catch (err) {
-        setError("Error connecting to the server");
-        setUserExists(false);
+        console.error("Error fetching profile data:", err);
+        setError(err.message);
         setIsLoading(false);
       }
     }
@@ -74,11 +97,12 @@ export default function UserProfilePage() {
 
   return (
     <div className="container mx-auto py-8">
-      {userExists && (
-        <div>
-          <UserProfile userId={userId} userData={userData} submissions={submissions} statistics={statistics} />
-        </div>
-      )}
+      <UserProfile
+        userId={userId}
+        userData={userData}
+        submissions={submissions}
+        statistics={statistics}
+      />
     </div>
   );
 }

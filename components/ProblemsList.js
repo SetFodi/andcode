@@ -1,8 +1,10 @@
 'use client'
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth'; // Assuming you have a useAuth hook for authentication
 
 export default function ProblemsList() {
+  const { user } = useAuth(); // Get the logged-in user
   const [problems, setProblems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
@@ -16,10 +18,14 @@ export default function ProblemsList() {
     pages: 1,
     current: 1
   });
+  const [acceptedProblems, setAcceptedProblems] = useState(new Set()); // To store problem IDs the user has solved
 
   useEffect(() => {
+    if (user) {
+      fetchAcceptedProblems();
+    }
     fetchProblems();
-  }, [filters]);
+  }, [filters, user]);
 
   const fetchProblems = async () => {
     try {
@@ -42,6 +48,17 @@ export default function ProblemsList() {
     }
   };
 
+  const fetchAcceptedProblems = async () => {
+    try {
+      const response = await fetch(`/api/users/${user._id}/submissions?status=ACCEPTED`);
+      const data = await response.json();
+      const acceptedIds = data.submissions.map(sub => sub.problemId.toString());
+      setAcceptedProblems(new Set(acceptedIds));
+    } catch (error) {
+      console.error('Failed to fetch accepted problems:', error);
+    }
+  };
+
   const getDifficultyColor = (difficulty) => {
     switch (difficulty.toLowerCase()) {
       case 'easy': return 'text-green-500';
@@ -49,6 +66,10 @@ export default function ProblemsList() {
       case 'hard': return 'text-red-500';
       default: return 'text-gray-500';
     }
+  };
+
+  const getStatusColor = (problemId) => {
+    return acceptedProblems.has(problemId) ? 'bg-green-500' : 'bg-gray-300';
   };
 
   return (
@@ -126,7 +147,7 @@ export default function ProblemsList() {
                     onClick={() => window.location.href = `/problems/${problem._id}`}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="h-3 w-3 rounded-full bg-gray-300 inline-block"></span>
+                      <span className={`h-3 w-3 rounded-full inline-block ${getStatusColor(problem._id)}`}></span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-gray-900">{problem.title}</div>

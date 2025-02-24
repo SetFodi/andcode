@@ -1,11 +1,9 @@
-// app/api/users/[userId]/route.js
-
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 
 export async function GET(request, { params }) {
   try {
-    // Await the params to fix the Next.js warning
     const { userId } = await params;
     
     console.log(`API: /api/users/[userId] called with userId: ${userId}`);
@@ -21,64 +19,48 @@ export async function GET(request, { params }) {
     // Connect to MongoDB using the clientPromise
     console.log('API: Connecting to MongoDB...');
     const client = await clientPromise;
-    const db = client.db();
+    const db = client.db("leetcode-clone");
     
-    // Log the collection names to verify
-    console.log('API: Connected to MongoDB, checking collections...');
-    const collections = await db.listCollections().toArray();
-    console.log(`API: Available collections: ${collections.map(c => c.name).join(', ')}`);
-    
-    // Find the user by ID
-    console.log(`API: Looking for user with ID: ${userId}`);
-    
-    // If users collection exists, query it
-    if (collections.some(c => c.name === 'users')) {
-      // First, see if there are any users at all
-      const userCount = await db.collection('users').countDocuments();
-      console.log(`API: User collection has ${userCount} documents`);
-      
-      // Try to find the specific user
-      const user = await db.collection('users').findOne(
-        { _id: userId },
-        { projection: { password: 0 } }
+    // Convert userId to ObjectId
+    let queryId;
+    try {
+      queryId = new ObjectId(userId);
+    } catch (e) {
+      console.log(`API: Invalid userId format: ${userId}`);
+      return NextResponse.json(
+        { error: 'Invalid user ID format' },
+        { status: 400 }
       );
-      
-      // If user is not found, try with string vs ObjectId conversion
-      if (!user) {
-        console.log(`API: User not found with exact ID match, trying alternative formats...`);
-        
-        // For development/testing - provide mock data if user not found
-        console.log(`API: Generating mock data for user: ${userId}`);
-        
-        // Create a mock user based on the ID
-        const mockUser = {
-          _id: userId,
-          username: `User${userId.substring(0, 5)}`,
-          email: `user${userId.substring(0, 5)}@example.com`,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        
-        return NextResponse.json(mockUser);
-      }
-      
-      console.log(`API: User found: ${user.username || 'unnamed'}`);
-      return NextResponse.json(user);
-    } else {
-      console.log('API: Users collection not found, returning mock data');
-      
-      // Create a mock user based on the ID
-      const mockUser = {
-        _id: userId,
-        username: `User${userId.substring(0, 5)}`,
-        email: `user${userId.substring(0, 5)}@example.com`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      
-      return NextResponse.json(mockUser);
     }
     
+    // Find the user by ID
+    console.log(`API: Looking for user with ID: ${queryId}`);
+    const user = await db.collection('users').findOne(
+      { _id: queryId },
+      { projection: { password: 0 } }
+    );
+    
+    if (!user) {
+      console.log(`API: User not found with ID: ${userId}`);
+      // For development, you can return mock data, but in production, return 404
+      // const mockUser = {
+      //   _id: userId,
+      //   username: `User${userId.substring(0, 5)}`,
+      //   email: `user${userId.substring(0, 5)}@example.com`,
+      //   createdAt: new Date().toISOString(),
+      //   updatedAt: new Date().toISOString(),
+      // };
+      // return NextResponse.json(mockUser);
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+    
+    console.log(`API: User found: ${user.username || 'unnamed'}`);
+    // Convert ObjectId to string
+    const userData = {
+      ...user,
+      _id: user._id.toString(),
+    };
+    return NextResponse.json(userData);
   } catch (error) {
     console.error('Error fetching user:', error);
     return NextResponse.json(

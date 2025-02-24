@@ -1,3 +1,4 @@
+// app/api/users/[userId]/statistics/route.js
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
@@ -12,10 +13,8 @@ export async function GET(request, { params }) {
     const client = await clientPromise;
     const db = client.db("leetcode-clone");
 
-    const queryUserId = ObjectId.isValid(userId) ? new ObjectId(userId) : userId;
-
     const submissions = await db.collection('submissions')
-      .find({ userId: queryUserId })
+      .find({ userId: new ObjectId(userId) })
       .toArray();
 
     if (!submissions || submissions.length === 0) {
@@ -51,7 +50,7 @@ export async function GET(request, { params }) {
     return NextResponse.json({
       totalSolved: uniqueProblemsSolved.size,
       successRate: parseFloat(successRate.toFixed(2)),
-      ranking: 0, // Placeholder, implement proper ranking if needed
+      ranking: 0, // Placeholder
       difficultyBreakdown: difficultyCounts
     });
   } catch (error) {

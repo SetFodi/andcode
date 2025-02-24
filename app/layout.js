@@ -7,7 +7,7 @@ import Navbar from '../components/Navbar';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
-  title: 'LeetCode Clone',
+  title: 'AndCode - Coding Challenges',
   description: 'Practice coding problems and improve your skills',
 };
 

@@ -1,3 +1,4 @@
+// app/api/users/[userId]/submissions/route.js
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
@@ -5,6 +6,9 @@ import { ObjectId } from 'mongodb';
 export async function GET(request, { params }) {
   try {
     const { userId } = await params;
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get("limit") || "10");
+
     if (!userId) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
@@ -12,21 +16,54 @@ export async function GET(request, { params }) {
     const client = await clientPromise;
     const db = client.db("leetcode-clone");
 
-    // Handle userId as either string or ObjectId
-    const queryUserId = ObjectId.isValid(userId) ? new ObjectId(userId) : userId;
+    console.log(`Fetching submissions for userId: ${userId}`);
 
-    const submissions = await db
-      .collection("submissions")
-      .find({ userId: queryUserId })
-      .sort({ timestamp: -1 }) // Sort by newest first
-      .limit(10)
-      .toArray();
+    const submissions = await db.collection("submissions").aggregate([
+      {
+        $match: { userId: new ObjectId(userId) }
+      },
+      {
+        $lookup: {
+          from: "problems",
+          localField: "problemId",
+          foreignField: "_id",
+          as: "problemDetails"
+        }
+      },
+      {
+        $unwind: {
+          path: "$problemDetails",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          userId: 1,
+          problemId: 1,
+          code: 1,
+          language: 1,
+          status: 1,
+          executionTime: 1,
+          memoryUsed: 1,
+          timestamp: 1,
+          problemTitle: { $ifNull: ["$problemDetails.title", "Unknown Problem"] }
+        }
+      },
+      {
+        $sort: { timestamp: -1 }
+      },
+      {
+        $limit: limit
+      }
+    ]).toArray();
+
+    console.log(`Found ${submissions.length} submissions for userId: ${userId}`);
 
     if (submissions.length === 0) {
       return NextResponse.json({ message: 'No submissions yet' }, { status: 200 });
     }
 
-    // Convert ObjectIds to strings for JSON response
     const formattedSubmissions = submissions.map(sub => ({
       ...sub,
       _id: sub._id.toString(),

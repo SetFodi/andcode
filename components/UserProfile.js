@@ -160,47 +160,48 @@ export default function UserProfile({ userId, userData, submissions, statistics 
               <div className="p-6">
                 {activeTab === 'submissions' ? (
                   <div className="space-y-4">
-                    {submissions.length > 0 ? (
-                      submissions.map((submission) => (
-                        <div
-                          key={submission._id}
-                          className="flex items-center justify-between p-4 bg-gray-50 rounded"
-                        >
-                          <div className="flex items-center">
-                            <div className="mr-3">
-                              {submission.status === 'ACCEPTED' ? (
-                                <span className="text-green-500">✓</span>
-                              ) : (
-                                <span className="text-red-500">✗</span>
-                              )}
-                            </div>
-                            <div>
-                              <a
-                                href={`/problems/${submission.problemId}`}
-                                className="font-medium hover:text-blue-600"
-                              >
-                                {submission.problemTitle || 'Problem #' + submission.problemId}
-                              </a>
-                              <div className="text-sm text-gray-500">
-                                {formatDate(submission.timestamp)}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-sm">
-                              Runtime: {submission.executionTime || 'N/A'}ms
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              Memory: {submission.memoryUsed || 'N/A'}MB
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        No submissions yet. Start solving problems!
-                      </div>
-                    )}
+{submissions.length > 0 ? (
+  submissions.map((submission) => (
+    <div
+      key={submission._id}
+      className="flex items-center justify-between p-4 bg-gray-50 rounded"
+    >
+      <div className="flex items-center">
+        <div className="mr-3">
+          {submission.status === 'ACCEPTED' ? (
+            <span className="text-green-500">✓</span>
+          ) : (
+            <span className="text-red-500">✗</span>
+          )}
+        </div>
+        <div>
+          <a
+            href={`/problems/${submission.problemId}`}
+            className="font-medium hover:text-blue-600"
+          >
+            {submission.problemTitle || `Problem #${submission.problemId}`}
+          </a>
+          <div className="text-sm text-gray-500">
+            {formatDate(submission.timestamp)}
+          </div>
+        </div>
+      </div>
+      <div className="text-right">
+        <div className="text-sm">
+          Runtime: {submission.executionTime || 'N/A'}ms
+        </div>
+        <div className="text-sm text-gray-500">
+          Memory: {submission.memoryUsed || 'N/A'}MB
+        </div>
+      </div>
+    </div>
+  ))
+) : (
+  <div className="text-center py-8 text-gray-500">
+    No submissions yet. Start solving problems!
+  </div>
+)}
+
                   </div>
                 ) : (
                   <div>
