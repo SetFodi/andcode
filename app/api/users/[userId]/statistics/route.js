@@ -23,8 +23,10 @@ export async function GET(request, { params }) {
       return NextResponse.json({
         totalSolved: 0,
         successRate: 0,
+        totalSubmissions: 0,
         ranking: 0,
         difficultyBreakdown: { easy: 0, medium: 0, hard: 0 },
+        activityGraph: [],
       });
     }
 
@@ -55,6 +57,42 @@ export async function GET(request, { params }) {
         difficultyCounts[difficulty]++;
       }
     });
+
+    // Calculate weekly activity (last 7 days)
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 6); // Last 7 days including today
+    const activityGraph = await db
+      .collection("submissions")
+      .aggregate([
+        { $match: { userId: new ObjectId(userId), timestamp: { $gte: oneWeekAgo } } },
+        {
+          $group: {
+            _id: {
+              $dateToString: { format: "%Y-%m-%d", date: "$timestamp" },
+            },
+            submissions: { $sum: 1 },
+          },
+        },
+        {
+          $project: {
+            date: "$_id",
+            submissions: 1,
+            _id: 0,
+          },
+        },
+        { $sort: { date: 1 } }, // Sort by date ascending
+      ])
+      .toArray();
+
+    // Fill in missing days with 0 submissions
+    const activityData = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(oneWeekAgo);
+      date.setDate(oneWeekAgo.getDate() + i);
+      const dateStr = date.toISOString().split("T")[0]; // YYYY-MM-DD
+      const entry = activityGraph.find((item) => item.date === dateStr) || { date: dateStr, submissions: 0 };
+      activityData.push(entry);
+    }
 
     // Calculate ranking based on totalSolved and successRate
     const allUserStats = await db
@@ -96,8 +134,10 @@ export async function GET(request, { params }) {
     return NextResponse.json({
       totalSolved: uniqueProblemsSolved.size,
       successRate: parseFloat(successRate.toFixed(2)),
+      totalSubmissions,
       ranking: userRanking || 0,
       difficultyBreakdown: difficultyCounts,
+      activityGraph: activityData,
     });
   } catch (error) {
     console.error("Error calculating user statistics:", error);

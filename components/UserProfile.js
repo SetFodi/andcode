@@ -1,5 +1,20 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { LineChart, PieChart, Line, Pie, Cell, ResponsiveContainer } from "recharts";
+import { 
+  CheckCircle, 
+  XCircle, 
+  Clock, 
+  Star, 
+  Trophy, 
+  Activity, 
+  HardDriveDownload,
+  Zap,
+  User,
+  Calendar,
+  BarChart4,
+  Code2
+} from "lucide-react";
 
 export default function UserProfile({ userId, userData, submissions, statistics }) {
   const [activeTab, setActiveTab] = useState("submissions");
@@ -46,183 +61,289 @@ export default function UserProfile({ userId, userData, submissions, statistics 
     );
   }
 
+  const COLORS = ["#10B981", "#F59E0B", "#EF4444"];
+  const difficultyData = [
+    { name: "Easy", value: statistics.difficultyBreakdown.easy },
+    { name: "Medium", value: statistics.difficultyBreakdown.medium },
+    { name: "Hard", value: statistics.difficultyBreakdown.hard }
+  ];
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-pulse rounded-full h-24 w-24 bg-gray-200 dark:bg-gray-700"></div>
+          <div className="space-y-2">
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-48"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-6xl mx-auto p-4 bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       {userData && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {/* Profile Card */}
-          <div className="md:col-span-1">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <div className="text-center">
-                <div className="w-24 h-24 rounded-full bg-gray-200 dark:bg-gray-700 mx-auto mb-4 flex items-center justify-center">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Profile Sidebar */}
+          <div className="lg:col-span-1 space-y-6">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+              <div className="flex flex-col items-center">
+                <div className="relative w-32 h-32 mb-4">
                   {userData.avatarUrl ? (
                     <img
                       src={userData.avatarUrl}
                       alt={userData.username}
-                      className="w-24 h-24 rounded-full object-cover"
+                      className="rounded-full w-32 h-32 object-cover border-4 border-white dark:border-gray-800 shadow-lg"
                     />
                   ) : (
-                    <span className="text-3xl">👤</span>
+                    <div className="w-32 h-32 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                      <User className="w-16 h-16 text-blue-500 dark:text-blue-400" />
+                    </div>
                   )}
                 </div>
-                <h2 className="text-xl font-bold mb-2">{userData.username}</h2>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  Joined {formatDate(userData.createdAt || new Date())}
-                </p>
-              </div>
-
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-gray-600 dark:text-gray-400">Problems Solved</span>
-                  <span className="font-bold">{statistics.totalSolved}</span>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                  {userData.username}
+                </h2>
+                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 mb-4">
+                  <Calendar className="w-5 h-5" />
+                  <span>Joined {formatDate(userData.createdAt)}</span>
                 </div>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-gray-600 dark:text-gray-400">Success Rate</span>
-                  <span className="font-bold">{statistics.successRate}%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Ranking</span>
-                  <span className="font-bold">#{statistics.ranking || "N/A"}</span>
+                
+                <div className="w-full space-y-4">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Global Rank</span>
+                      <Trophy className="w-5 h-5 text-blue-500" />
+                    </div>
+                    <div className="text-2xl font-bold mt-2">
+                      #{statistics.ranking || "N/A"}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Progress Card */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mt-6">
-              <h3 className="font-bold mb-4">Difficulty Breakdown</h3>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between mb-1">
-                    <span className="text-green-500">Easy</span>
-                    <span>{statistics.difficultyBreakdown.easy}</span>
-                  </div>
-                  <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded">
-                    <div
-                      className="h-full bg-green-500 rounded"
-                      style={{ width: `${calculatePercentage(statistics.difficultyBreakdown.easy, totalProblems)}%` }}
-                    ></div>
-                  </div>
+            {/* Progress Cards */}
+            <div className="space-y-6">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+                <h3 className="font-bold mb-4 flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-green-500" />
+                  Problem Breakdown
+                </h3>
+                <div className="space-y-4">
+                  {difficultyData.map((entry, index) => (
+                    <div key={entry.name}>
+                      <div className="flex justify-between mb-1 text-sm">
+                        <span className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${COLORS[index]}`} />
+                          {entry.name}
+                        </span>
+                        <span>{entry.value}</span>
+                      </div>
+                      <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ 
+                            width: `${calculatePercentage(entry.value, totalProblems)}%`,
+                            backgroundColor: COLORS[index]
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <div className="flex justify-between mb-1">
-                    <span className="text-yellow-500">Medium</span>
-                    <span>{statistics.difficultyBreakdown.medium}</span>
-                  </div>
-                  <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded">
-                    <div
-                      className="h-full bg-yellow-500 rounded"
-                      style={{ width: `${calculatePercentage(statistics.difficultyBreakdown.medium, totalProblems)}%` }}
-                    ></div>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between mb-1">
-                    <span className="text-red-500">Hard</span>
-                    <span>{statistics.difficultyBreakdown.hard}</span>
-                  </div>
-                  <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded">
-                    <div
-                      className="h-full bg-red-500 rounded"
-                      style={{ width: `${calculatePercentage(statistics.difficultyBreakdown.hard, totalProblems)}%` }}
-                    ></div>
-                  </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+                <h3 className="font-bold mb-4 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-purple-500" />
+                  Activity Graph
+                </h3>
+                <div className="h-32">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={statistics.activityGraph}>
+                      <Line
+                        type="monotone"
+                        dataKey="submissions"
+                        stroke="#6366F1"
+                        strokeWidth={2}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Main Content */}
-          <div className="md:col-span-3">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-              <div className="border-b border-gray-200 dark:border-gray-700">
-                <nav className="flex">
+          <div className="lg:col-span-3">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
+              {/* Tabs */}
+              <div className="border-b border-gray-100 dark:border-gray-700">
+                <nav className="flex gap-2 px-6">
                   <button
-                    className={`px-6 py-3 text-sm font-medium ${
+                    onClick={() => setActiveTab("submissions")}
+                    className={`px-4 py-3 font-medium flex items-center gap-2 ${
                       activeTab === "submissions"
                         ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400"
                         : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                     }`}
-                    onClick={() => setActiveTab("submissions")}
                   >
+                    <Code2 className="w-5 h-5" />
                     Submissions
                   </button>
                   <button
-                    className={`px-6 py-3 text-sm font-medium ${
+                    onClick={() => setActiveTab("statistics")}
+                    className={`px-4 py-3 font-medium flex items-center gap-2 ${
                       activeTab === "statistics"
                         ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400"
                         : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                     }`}
-                    onClick={() => setActiveTab("statistics")}
                   >
+                    <BarChart4 className="w-5 h-5" />
                     Statistics
                   </button>
                 </nav>
               </div>
 
+              {/* Content */}
               <div className="p-6">
-         
-              {activeTab === "submissions" ? (
-  <div className="space-y-4">
-    {submissions.length > 0 ? (
-      submissions.map((submission) => (
-        <div
-          key={submission._id}
-          className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded"
-        >
-          <div className="flex items-center">
-            <div className="mr-3">
-              {submission.status === "ACCEPTED" ? (
-                <span className="text-green-500">✓</span>
-              ) : (
-                <span className="text-red-500">✗</span>
-              )}
-            </div>
-            <div>
-              <a
-                href={`/problems/${submission.problemId}`}
-                className="font-medium hover:text-blue-600 dark:hover:text-blue-400"
-              >
-                {submission.problemTitle || `Problem #${submission.problemId}`} - {submission.language.charAt(0).toUpperCase() + submission.language.slice(1)}
-              </a>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                {formatDate(submission.timestamp)}
-              </div>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-sm">
-              Runtime: {submission.executionTime || "N/A"}ms
-            </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              Memory: {submission.memoryUsed || "N/A"}MB
-            </div>
-          </div>
+                {activeTab === "submissions" ? (
+                  <div className="space-y-4">
+                    {submissions.length > 0 ? (
+                      submissions.map((submission) => (
+                        <div
+                          key={submission._id}
+                          className="group flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                          onClick={() => window.location.href = `/problems/${submission.problemId}`}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-8 h-8 flex items-center justify-center">
+                              {submission.status === "ACCEPTED" ? (
+                                <CheckCircle className="w-6 h-6 text-green-500" />
+                              ) : (
+                                <XCircle className="w-6 h-6 text-red-500" />
+                              )}
+                            </div>
+                            <div>
+                              <div className="font-medium">
+                                {submission.problemTitle}
+                              </div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                                <span className="bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded-md text-xs">
+                                  {submission.language}
+                                </span>
+                                <span>{formatDate(submission.timestamp)}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-mono">
+                              <span className="text-green-500">{submission.executionTime}ms</span>
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                              {submission.memoryUsed}MB
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-12">
+                        <div className="mb-4 text-gray-400 dark:text-gray-500">
+                          <HardDriveDownload className="w-16 h-16 mx-auto" />
+                        </div>
+                        <h3 className="text-lg font-medium mb-2">No submissions yet</h3>
+                        <p className="text-gray-500 dark:text-gray-400">
+                          Start solving problems to track your progress!
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-6">
+                      <h4 className="font-bold mb-4 flex items-center gap-2">
+                        <Star className="w-5 h-5 text-yellow-500" />
+                        Solved Problems
+                      </h4>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={difficultyData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={80}
+                              paddingAngle={5}
+                              dataKey="value"
+                            >
+                              {difficultyData.map((entry, index) => (
+                                <Cell
+                                  key={`cell-${index}`}
+                                  fill={COLORS[index % COLORS.length]}
+                                />
+                              ))}
+                            </Pie>
+                            <text
+                              x="50%"
+                              y="50%"
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                              className="text-2xl font-bold"
+                            >
+                              {statistics.totalSolved}
+                            </text>
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                    <div className="space-y-6">
+  <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-6">
+    <h4 className="font-bold mb-4 flex items-center gap-2">
+      <Activity className="w-5 h-5 text-purple-500" />
+      Weekly Activity
+    </h4>
+    <div className="h-48">
+      {statistics.activityGraph && statistics.activityGraph.length > 0 ? (
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={statistics.activityGraph}>
+            <Line
+              type="monotone"
+              dataKey="submissions"
+              stroke="#6366F1"
+              strokeWidth={2}
+              dot={{ r: 4, fill: "#6366F1" }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      ) : (
+        <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
+          No activity data available for the past week
         </div>
-      ))
-    ) : (
-      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-        No submissions yet. Start solving problems!
-      </div>
-    )}
+      )}
+    </div>
   </div>
 
-                ) : (
-                  <div>
-                    <div className="h-96 flex items-center justify-center">
-                      <div className="text-center text-gray-500 dark:text-gray-400">
-                        {statistics.totalSolved > 0 ? (
-                          <>
-                            <p className="text-4xl font-bold">{statistics.totalSolved}</p>
-                            <p className="text-xl mt-2">Problems Solved</p>
-                            <p className="mt-4">Success Rate: {statistics.successRate}%</p>
-                            <p>Ranking: #{statistics.ranking}</p>
-                          </>
-                        ) : (
-                          <>
-                            <p className="mb-4">Statistics data is still being gathered.</p>
-                            <p>Solve more problems to see your progress over time!</p>
-                          </>
-                        )}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-green-500/10 p-4 rounded-xl">
+                          <div className="text-2xl font-bold text-green-500">
+                            {statistics.successRate}%
+                          </div>
+                          <div className="text-sm text-gray-600 dark:text-gray-300">
+                            Success Rate
+                          </div>
+                        </div>
+                        <div className="bg-blue-500/10 p-4 rounded-xl">
+                          <div className="text-2xl font-bold text-blue-500">
+                            {statistics.totalSubmissions}
+                          </div>
+                          <div className="text-sm text-gray-600 dark:text-gray-300">
+                            Total Submissions
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
