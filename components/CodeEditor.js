@@ -3,7 +3,6 @@ import dynamic from "next/dynamic";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Settings } from "lucide-react";
 
-// Dynamically import MonacoEditor to avoid SSR issues
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
 export default function CodeEditor({ 
@@ -31,7 +30,7 @@ export default function CodeEditor({
       </div>
       <MonacoEditor
         height="400px"
-        defaultLanguage={language}
+        language={language} // Use dynamic language prop
         value={initialCode}
         onChange={handleEditorChange}
         theme={editorTheme}

@@ -40,11 +40,8 @@ export default function Navbar() {
                 <Link href="/problems" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700 dark:hover:bg-gray-600">
                   Problems
                 </Link>
-                <Link href="/contests" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700 dark:hover:bg-gray-600">
-                  Contests
-                </Link>
-                <Link href="/discuss" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700 dark:hover:bg-gray-600">
-                  Discuss
+                <Link href="/forum" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700 dark:hover:bg-gray-600">
+                  Forum
                 </Link>
               </div>
             </div>
@@ -116,11 +113,8 @@ export default function Navbar() {
           <Link href="/problems" className="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-700 dark:hover:bg-gray-600">
             Problems
           </Link>
-          <Link href="/contests" className="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-700 dark:hover:bg-gray-600">
-            Contests
-          </Link>
-          <Link href="/discuss" className="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-700 dark:hover:bg-gray-600">
-            Discuss
+          <Link href="/forum" className="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-700 dark:hover:bg-gray-600">
+            Forum
           </Link>
         </div>
         <div className="pt-4 pb-3 border-t border-gray-700 dark:border-gray-600 bg-gray-800 dark:bg-gray-900">

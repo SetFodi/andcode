@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Search, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Filter, ChevronLeft, ChevronRight, CheckCircle, SignalHigh, SignalMedium, SignalLow, Hash, ListTree, Workflow } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function ProblemsList() {
@@ -98,27 +98,56 @@ export default function ProblemsList() {
     return acceptedProblems.has(problemId) ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600";
   };
 
+  const getDifficultyIcon = (difficulty) => {
+    switch (difficulty.toLowerCase()) {
+      case "easy":
+        return <SignalLow className="w-4 h-4 text-green-500" />;
+      case "medium":
+        return <SignalMedium className="w-4 h-4 text-yellow-500" />;
+      case "hard":
+        return <SignalHigh className="w-4 h-4 text-red-500" />;
+      default:
+        return <SignalMedium className="w-4 h-4 text-gray-500" />;
+    }
+  };
+
+  const getCategoryIcon = (category) => {
+    switch (category.toLowerCase()) {
+      case "arrays":
+        return <Hash className="w-4 h-4 text-purple-500" />;
+      case "strings":
+        return <Workflow className="w-4 h-4 text-blue-500" />;
+      case "trees":
+        return <ListTree className="w-4 h-4 text-green-500" />;
+      default:
+        return <Hash className="w-4 h-4 text-gray-500" />;
+    }
+  };
+
   return (
-    <div className="max-w-6xl mx-auto p-4 bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-4">Coding Problems</h1>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-gray-50 dark:bg-gray-900">
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">Coding Challenges</h1>
+        <p className="text-gray-600 dark:text-gray-300">Practice your skills with our curated collection of problems</p>
+      </div>
 
-        <div className="flex gap-4 mb-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search problems..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                value={filters.search}
-                onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value, page: 1 }))}
-              />
-            </div>
-          </div>
-
+      {/* Filters Section */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="relative col-span-2">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search problems..."
+            className="w-full pl-10 pr-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 transition-all"
+            value={filters.search}
+            onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value, page: 1 }))}
+          />
+        </div>
+        
+        <div className="relative">
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <select
-            className="border border-gray-300 dark:border-gray-700 rounded px-4 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-10 pr-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 appearance-none"
             value={filters.difficulty}
             onChange={(e) => setFilters((f) => ({ ...f, difficulty: e.target.value, page: 1 }))}
           >
@@ -127,9 +156,12 @@ export default function ProblemsList() {
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
           </select>
+        </div>
 
+        <div className="relative">
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <select
-            className="border border-gray-300 dark:border-gray-700 rounded px-4 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-10 pr-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 appearance-none"
             value={filters.category}
             onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value, page: 1 }))}
           >
@@ -144,80 +176,132 @@ export default function ProblemsList() {
       </div>
 
       {loading ? (
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">Loading problems...</div>
+        <div className="animate-pulse space-y-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
+          ))}
+        </div>
       ) : (
         <>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-            <table className="min-w-full">
-              <thead className="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Title
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Difficulty
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Success Rate
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {problems.map((problem) => (
-                  <tr
-                    key={problem._id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                    onClick={() => (window.location.href = `/problems/${problem._id}`)}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`h-3 w-3 rounded-full inline-block ${getStatusColor(problem._id)}`}></span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium">{problem.title}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">{problem.category}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`${getDifficultyColor(problem.difficulty)} text-sm font-medium`}>
-                        {problem.difficulty}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {problem.successRate?.toFixed(1)}%
-                    </td>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-500 dark:text-gray-300">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-500 dark:text-gray-300">
+                      Problem
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-500 dark:text-gray-300">
+                      Difficulty
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-500 dark:text-gray-300">
+                      Success
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {problems.map((problem) => (
+                    <tr
+                      key={problem._id}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
+                      onClick={() => (window.location.href = `/problems/${problem._id}`)}
+                    >
+                      <td className="px-6 py-4">
+                        <div className="h-6 w-6 flex items-center justify-center">
+                          {acceptedProblems.has(problem._id) ? (
+                            <CheckCircle className="w-5 h-5 text-green-500" />
+                          ) : (
+                            <div className="w-3 h-3 rounded-full bg-gray-300 dark:bg-gray-600" />
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="text-blue-500">
+                            {getCategoryIcon(problem.category)}
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-900 dark:text-white">
+                              {problem.title}
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                              {problem.category}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          {getDifficultyIcon(problem.difficulty)}
+                          <span className={`${getDifficultyColor(problem.difficulty)} font-medium`}>
+                            {problem.difficulty}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-20 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-blue-500"
+                              style={{ width: `${problem.successRate}%` }}
+                            />
+                          </div>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {problem.successRate?.toFixed(1)}%
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <div className="flex items-center justify-between mt-4 text-gray-700 dark:text-gray-300">
-            <div className="text-sm">
-              Showing {(pagination.current - 1) * 10 + 1} to{" "}
-              {Math.min(pagination.current * 10, pagination.total)} of{" "}
-              {pagination.total} results
+          {/* Pagination */}
+          <div className="mt-6 flex items-center justify-between px-4">
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              Showing {((pagination.current - 1) * 10) + 1} -{' '}
+              {Math.min(pagination.current * 10, pagination.total)} of{' '}
+              {pagination.total} problems
             </div>
-
+            
             <div className="flex gap-2">
               <button
                 onClick={() => setFilters((f) => ({ ...f, page: f.page - 1 }))}
                 disabled={pagination.current === 1}
-                className="px-3 py-1 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-800 disabled:opacity-50"
+                className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
+              <div className="flex items-center px-4 text-gray-700 dark:text-gray-300">
+                Page {pagination.current}
+              </div>
               <button
                 onClick={() => setFilters((f) => ({ ...f, page: f.page + 1 }))}
                 disabled={pagination.current === pagination.pages}
-                className="px-3 py-1 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-800 disabled:opacity-50"
+                className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
             </div>
           </div>
         </>
+      )}
+
+      {!loading && problems.length === 0 && (
+        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+          <div className="text-6xl mb-4 text-gray-300 dark:text-gray-600">🧩</div>
+          <h3 className="text-xl font-medium text-gray-900 dark:text-white mb-2">
+            No problems found
+          </h3>
+          <p className="text-gray-600 dark:text-gray-300">
+            Try adjusting your filters or search terms
+          </p>
+        </div>
       )}
     </div>
   );

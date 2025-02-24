@@ -7,10 +7,20 @@ import { Timer, BookOpen, RefreshCcw, CheckCircle, XCircle, ChevronRight, Termin
 import { useAuth } from "@/hooks/useAuth";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
-async function validateSolution(code, testCases) {
+// Supported languages with Piston API versions
+const LANGUAGES = [
+  { name: "JavaScript", value: "javascript", version: "18.15.0", extension: "js" },
+  { name: "Python", value: "python", version: "3.10.0", extension: "py" },
+  { name: "Java", value: "java", version: "15.0.2", extension: "java" },
+];
+
+async function validateSolution(code, testCases, language) {
   if (!testCases || !Array.isArray(testCases) || testCases.length === 0) {
     throw new Error("No test cases available for validation");
   }
+
+  const selectedLang = LANGUAGES.find((lang) => lang.value === language);
+  if (!selectedLang) throw new Error("Unsupported language");
 
   const results = [];
   let passedCount = 0;
@@ -18,9 +28,9 @@ async function validateSolution(code, testCases) {
   for (const [index, testCase] of testCases.entries()) {
     try {
       const payload = {
-        language: "javascript",
-        version: "18.15.0",
-        files: [{ name: "main.js", content: code }],
+        language: selectedLang.value,
+        version: selectedLang.version,
+        files: [{ name: `main.${selectedLang.extension}`, content: code }],
         stdin: testCase.input,
         args: [],
       };
@@ -86,6 +96,7 @@ export default function ProblemDetail({ params }) {
   const [showHints, setShowHints] = useState(false);
   const [userNotes, setUserNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState("javascript"); // Default language
 
   useEffect(() => {
     let interval;
@@ -118,10 +129,11 @@ export default function ProblemDetail({ params }) {
 
   const handleRunCode = async () => {
     try {
+      const selectedLang = LANGUAGES.find((lang) => lang.value === selectedLanguage);
       const payload = {
-        language: "javascript",
-        version: "18.15.0",
-        files: [{ name: "main.js", content: code }],
+        language: selectedLang.value,
+        version: selectedLang.version,
+        files: [{ name: `main.${selectedLang.extension}`, content: code }],
         stdin: "",
         args: [],
       };
@@ -154,7 +166,7 @@ export default function ProblemDetail({ params }) {
       setIsSubmitting(true);
       setResults({ type: "loading", message: "Testing your solution..." });
 
-      const validation = await validateSolution(code, problem.testCases);
+      const validation = await validateSolution(code, problem.testCases, selectedLanguage);
       await handleSubmission(validation);
     } catch (error) {
       console.error("Validation error:", error);
@@ -170,11 +182,12 @@ export default function ProblemDetail({ params }) {
       const userId = user ? (user._id || user.userId) : "anonymous";
       console.log("User ID from auth:", userId);
 
+      const selectedLang = LANGUAGES.find((lang) => lang.value === selectedLanguage);
       const submission = {
         userId: userId,
         problemId: id,
         code,
-        language: "javascript",
+        language: selectedLang.value, // Store selected language
         status: testResults.correct ? "ACCEPTED" : "FAILED",
         executionTime: testResults.results[0]?.executionTime || 0,
         memoryUsed: testResults.results[0]?.memoryUsage || 0,
@@ -248,7 +261,7 @@ export default function ProblemDetail({ params }) {
               <Timer className="w-5 h-5" />
               <span className="font-mono">{formatTime(timer)}</span>
             </div>
-            <button 
+            <button
               onClick={() => setShowHints(!showHints)}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:hover:bg-yellow-800/40 transition-colors"
             >
@@ -263,9 +276,7 @@ export default function ProblemDetail({ params }) {
           <div className="space-y-6">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
               <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Problem Statement</h3>
-              <pre className="whitespace-pre-wrap text-gray-600 dark:text-gray-400 leading-relaxed">
-                {problem.statement}
-              </pre>
+              <pre className="whitespace-pre-wrap text-gray-600 dark:text-gray-400 leading-relaxed">{problem.statement}</pre>
             </div>
 
             {showHints && (
@@ -308,7 +319,17 @@ export default function ProblemDetail({ params }) {
               <div className="flex items-center justify-between bg-gray-800 dark:bg-gray-700 px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Terminal className="w-5 h-5 text-green-400" />
-                  <span className="font-mono text-sm text-gray-300">JavaScript</span>
+                  <select
+                    value={selectedLanguage}
+                    onChange={(e) => setSelectedLanguage(e.target.value)}
+                    className="bg-transparent text-gray-300 font-mono text-sm focus:outline-none"
+                  >
+                    {LANGUAGES.map((lang) => (
+                      <option key={lang.value} value={lang.value} className="text-black dark:text-white">
+                        {lang.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="flex items-center gap-3">
                   <button
@@ -321,7 +342,7 @@ export default function ProblemDetail({ params }) {
               </div>
               <CodeEditor
                 initialCode={code}
-                language="javascript"
+                language={selectedLanguage}
                 onChange={setCode}
                 fontSize={fontSize}
               />
@@ -378,8 +399,8 @@ export default function ProblemDetail({ params }) {
                 {results.type === "submit" && (
                   <div className="space-y-6">
                     <div className={`flex items-center gap-3 p-4 rounded-lg ${results.correct ? 
-                      'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 
-                      'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'}`}>
+                      "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800" : 
+                      "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"}`}>
                       {results.correct ? (
                         <CheckCircle className="w-8 h-8 text-green-500" />
                       ) : (
@@ -387,7 +408,7 @@ export default function ProblemDetail({ params }) {
                       )}
                       <div>
                         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                          {results.correct ? 'Solution Accepted!' : 'Submission Failed'}
+                          {results.correct ? "Solution Accepted!" : "Submission Failed"}
                         </h3>
                         <p className="text-gray-600 dark:text-gray-400">{results.message}</p>
                         <p className="mt-2 text-sm font-mono">
@@ -400,11 +421,14 @@ export default function ProblemDetail({ params }) {
                       <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Test Cases</h4>
                       <div className="space-y-3">
                         {results.results.map((result, idx) => (
-                          <div key={idx} className={`p-4 rounded-lg border ${
-                            result.passed 
-                              ? 'border-green-100 dark:border-green-900/30 bg-green-50/50 dark:bg-green-900/10'
-                              : 'border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10'
-                          }`}>
+                          <div
+                            key={idx}
+                            className={`p-4 rounded-lg border ${
+                              result.passed
+                                ? "border-green-100 dark:border-green-900/30 bg-green-50/50 dark:bg-green-900/10"
+                                : "border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10"
+                            }`}
+                          >
                             <div className="flex items-center gap-2 mb-2">
                               {result.passed ? (
                                 <CheckCircle className="w-4 h-4 text-green-500" />
