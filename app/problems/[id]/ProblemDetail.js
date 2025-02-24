@@ -124,11 +124,12 @@ export default function ProblemDetail({ params }) {
     try {
       setIsSubmitting(true);
       
-      // Ensure userId is properly retrieved (either from auth or as anonymous)
+      // Ensure userId is properly retrieved
       const userId = user ? (user._id || user.userId) : "anonymous";
+      console.log("User ID from auth:", userId); // Debug log
       
       const submission = {
-        userId: userId,
+        userId: userId, // Keep as string, we'll handle ObjectId in the API
         problemId: id,
         code,
         language: "javascript",
@@ -137,7 +138,7 @@ export default function ProblemDetail({ params }) {
         memoryUsed: testResults.results[0]?.memoryUsage || 0,
       };
   
-      console.log("Saving submission:", submission);
+      console.log("Submission payload:", submission);
   
       const response = await fetch("/api/submissions", {
         method: "POST",
@@ -145,9 +146,11 @@ export default function ProblemDetail({ params }) {
         body: JSON.stringify(submission),
       });
   
+      const responseData = await response.json();
+      console.log("Submission response:", responseData);
+  
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Server error: ${response.status}`);
+        throw new Error(responseData.message || `Server error: ${response.status}`);
       }
   
       setResults({

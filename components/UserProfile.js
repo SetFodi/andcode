@@ -1,131 +1,16 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 
-export default function UserProfile({ userId }) {
-  const [profile, setProfile] = useState(null);
-  const [submissions, setSubmissions] = useState([]);
-  const [stats, setStats] = useState({
-    totalSolved: 0,
-    successRate: 0,
-    ranking: 0,
-    difficultyBreakdown: {
-      easy: 0,
-      medium: 0,
-      hard: 0
-    }
-  });
+export default function UserProfile({ userId, userData, submissions, statistics }) {
   const [activeTab, setActiveTab] = useState('submissions');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (userId) {
-      console.log("UserProfile: Starting data fetch for userId:", userId);
-      fetchUserData();
-    }
-  }, [userId]);
-
-  const fetchUserData = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Fetch user profile
-      console.log(`UserProfile: Fetching user data with ID: ${userId}`);
-      
-      // Debugging log to check the exact URL being called
-      const profileUrl = `/api/users/${userId}`;
-      console.log(`UserProfile: Calling API at: ${profileUrl}`);
-      
-      const profileResponse = await fetch(profileUrl, {
-        method: 'GET',
-        credentials: 'include', // Important for cookies
-      });
-      
-      console.log(`UserProfile: Profile API response status: ${profileResponse.status}`);
-      
-      if (!profileResponse.ok) {
-        // Enhanced error with more details to help debug
-        const errorText = await profileResponse.text().catch(() => 'No error details');
-        console.error(`UserProfile: API error response: ${errorText}`);
-        throw new Error(`Failed to fetch user profile: ${profileResponse.status}`);
-      }
-      
-      const profileData = await profileResponse.json();
-      console.log("UserProfile: User data received", profileData);
-      setProfile(profileData);
-      
-      // After successfully loading profile, fetch statistics and submissions
-      await Promise.all([fetchStatistics(), fetchSubmissions()]);
-      
-      setError(null);
-    } catch (error) {
-      console.error('Failed to fetch user data:', error);
-      setError(`Failed to load user profile data: ${error.message}`);
-    } finally {
       setIsLoading(false);
     }
-  };
-  
-  const fetchStatistics = async () => {
-    try {
-      console.log(`UserProfile: Fetching statistics for userId: ${userId}`);
-      const statsResponse = await fetch(`/api/users/${userId}/statistics`, {
-        method: 'GET',
-        credentials: 'include',
-      });
-      
-      console.log(`UserProfile: Statistics API response status: ${statsResponse.status}`);
-      
-      if (!statsResponse.ok) {
-        console.warn(`UserProfile: Statistics fetch failed with status: ${statsResponse.status}`);
-        // Don't throw here, just return default stats
-        return;
-      }
-      
-      const statsData = await statsResponse.json();
-      console.log("UserProfile: Statistics data received", statsData);
-      
-      // Update stats from actual data
-      setStats({
-        totalSolved: statsData.totalSolved || 0,
-        successRate: statsData.successRate || 0,
-        ranking: statsData.ranking || 0,
-        difficultyBreakdown: {
-          easy: statsData.difficultyBreakdown?.easy || 0,
-          medium: statsData.difficultyBreakdown?.medium || 0,
-          hard: statsData.difficultyBreakdown?.hard || 0
-        }
-      });
-    } catch (error) {
-      console.error('Failed to fetch statistics:', error);
-      // Don't set main error - we want to show the profile even if stats fail
-    }
-  };
-  
-  const fetchSubmissions = async () => {
-    try {
-      console.log(`UserProfile: Fetching submissions for userId: ${userId}`);
-      const submissionsResponse = await fetch(`/api/users/${userId}/submissions?limit=10`, {
-        method: 'GET',
-        credentials: 'include',
-      });
-      
-      console.log(`UserProfile: Submissions API response status: ${submissionsResponse.status}`);
-      
-      if (!submissionsResponse.ok) {
-        console.warn(`UserProfile: Submissions fetch failed with status: ${submissionsResponse.status}`);
-        // Don't throw here, just return empty submissions
-        return;
-      }
-      
-      const submissionsData = await submissionsResponse.json();
-      console.log("UserProfile: Submissions data received", submissionsData);
-      setSubmissions(submissionsData.submissions || []);
-    } catch (error) {
-      console.error('Failed to fetch submissions:', error);
-      // Don't set main error - we want to show the profile even if submissions fail
-    }
-  };
+  }, [userId]);
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -140,10 +25,10 @@ export default function UserProfile({ userId }) {
     if (!total) return 0;
     return (value / total) * 100;
   };
-  
-  const totalProblems = stats.difficultyBreakdown.easy + 
-                       stats.difficultyBreakdown.medium + 
-                       stats.difficultyBreakdown.hard;
+
+  const totalProblems = statistics.difficultyBreakdown.easy +
+    statistics.difficultyBreakdown.medium +
+    statistics.difficultyBreakdown.hard;
 
   if (isLoading) {
     return (
@@ -157,57 +42,45 @@ export default function UserProfile({ userId }) {
     return (
       <div className="bg-red-50 p-4 rounded-lg">
         <p className="text-red-500">{error}</p>
-        <button 
-          onClick={() => fetchUserData()}
-          className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-        >
-          Retry
-        </button>
-        {process.env.NODE_ENV === 'development' && (
-          <div className="mt-4 p-4 bg-gray-100 rounded text-xs max-w-md overflow-auto">
-            <p>Debug Info:</p>
-            <pre>User ID: {userId || 'null'}</pre>
-          </div>
-        )}
       </div>
     );
   }
 
   return (
     <div className="max-w-6xl mx-auto p-4">
-      {profile && (
+      {userData && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Profile Card */}
           <div className="md:col-span-1">
             <div className="bg-white rounded-lg shadow p-6">
               <div className="text-center">
                 <div className="w-24 h-24 rounded-full bg-gray-200 mx-auto mb-4 flex items-center justify-center">
-                  {profile.avatarUrl ? (
-                    <img 
-                      src={profile.avatarUrl} 
-                      alt={profile.username} 
+                  {userData.avatarUrl ? (
+                    <img
+                      src={userData.avatarUrl}
+                      alt={userData.username}
                       className="w-24 h-24 rounded-full object-cover"
                     />
                   ) : (
                     <span className="text-3xl">👤</span>
                   )}
                 </div>
-                <h2 className="text-xl font-bold mb-2">{profile.username}</h2>
-                <p className="text-gray-600 mb-4">Joined {formatDate(profile.createdAt || new Date())}</p>
+                <h2 className="text-xl font-bold mb-2">{userData.username}</h2>
+                <p className="text-gray-600 mb-4">Joined {formatDate(userData.createdAt || new Date())}</p>
               </div>
-              
+
               <div className="border-t pt-4 mt-4">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-gray-600">Problems Solved</span>
-                  <span className="font-bold">{stats.totalSolved}</span>
+                  <span className="font-bold">{statistics.totalSolved}</span>
                 </div>
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-gray-600">Success Rate</span>
-                  <span className="font-bold">{stats.successRate}%</span>
+                  <span className="font-bold">{statistics.successRate}%</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">Ranking</span>
-                  <span className="font-bold">#{stats.ranking || 'N/A'}</span>
+                  <span className="font-bold">#{statistics.ranking || 'N/A'}</span>
                 </div>
               </div>
             </div>
@@ -219,36 +92,36 @@ export default function UserProfile({ userId }) {
                 <div>
                   <div className="flex justify-between mb-1">
                     <span className="text-green-500">Easy</span>
-                    <span>{stats.difficultyBreakdown.easy}</span>
+                    <span>{statistics.difficultyBreakdown.easy}</span>
                   </div>
                   <div className="h-2 bg-gray-200 rounded">
                     <div
                       className="h-full bg-green-500 rounded"
-                      style={{ width: `${calculatePercentage(stats.difficultyBreakdown.easy, totalProblems)}%` }}
+                      style={{ width: `${calculatePercentage(statistics.difficultyBreakdown.easy, totalProblems)}%` }}
                     ></div>
                   </div>
                 </div>
                 <div>
                   <div className="flex justify-between mb-1">
                     <span className="text-yellow-500">Medium</span>
-                    <span>{stats.difficultyBreakdown.medium}</span>
+                    <span>{statistics.difficultyBreakdown.medium}</span>
                   </div>
                   <div className="h-2 bg-gray-200 rounded">
                     <div
                       className="h-full bg-yellow-500 rounded"
-                      style={{ width: `${calculatePercentage(stats.difficultyBreakdown.medium, totalProblems)}%` }}
+                      style={{ width: `${calculatePercentage(statistics.difficultyBreakdown.medium, totalProblems)}%` }}
                     ></div>
                   </div>
                 </div>
                 <div>
                   <div className="flex justify-between mb-1">
                     <span className="text-red-500">Hard</span>
-                    <span>{stats.difficultyBreakdown.hard}</span>
+                    <span>{statistics.difficultyBreakdown.hard}</span>
                   </div>
                   <div className="h-2 bg-gray-200 rounded">
                     <div
                       className="h-full bg-red-500 rounded"
-                      style={{ width: `${calculatePercentage(stats.difficultyBreakdown.hard, totalProblems)}%` }}
+                      style={{ width: `${calculatePercentage(statistics.difficultyBreakdown.hard, totalProblems)}%` }}
                     ></div>
                   </div>
                 </div>
@@ -333,8 +206,19 @@ export default function UserProfile({ userId }) {
                   <div>
                     <div className="h-96 flex items-center justify-center">
                       <div className="text-center text-gray-500">
-                        <p className="mb-4">Statistics data is still being gathered.</p>
-                        <p>Solve more problems to see your progress over time!</p>
+                        {statistics.totalSolved > 0 ? (
+                          <>
+                            <p className="text-4xl font-bold">{statistics.totalSolved}</p>
+                            <p className="text-xl mt-2">Problems Solved</p>
+                            <p className="mt-4">Success Rate: {statistics.successRate}%</p>
+                            <p>Ranking: #{statistics.ranking}</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="mb-4">Statistics data is still being gathered.</p>
+                            <p>Solve more problems to see your progress over time!</p>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

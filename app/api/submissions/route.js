@@ -5,7 +5,6 @@ export async function POST(request) {
   try {
     const submissionData = await request.json();
 
-    // Ensure required fields are present
     if (!submissionData.problemId || !submissionData.code || !submissionData.language) {
       return new Response(
         JSON.stringify({ message: "Missing required fields" }),
@@ -15,15 +14,22 @@ export async function POST(request) {
 
     const { problemId, userId, code, language, status, executionTime, memoryUsed } = submissionData;
 
-    // Convert problemId and userId to ObjectId (MongoDB format)
+    // Handle userId flexibly (string or ObjectId)
+    let objectIdUser;
+    try {
+      objectIdUser = ObjectId.isValid(userId) ? new ObjectId(userId) : userId;
+    } catch (e) {
+      console.error("Invalid userId format:", userId);
+      return new Response(
+        JSON.stringify({ message: "Invalid userId format" }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     const objectIdProblem = new ObjectId(problemId);
-    const objectIdUser = new ObjectId(userId);
+    const executionTimeNum = Number(executionTime);
+    const memoryUsedNum = Number(memoryUsed);
 
-    // Ensure executionTime and memoryUsed are numbers
-    const executionTimeNum = Number(executionTime); // Ensure it's a number
-    const memoryUsedNum = Number(memoryUsed); // Ensure it's a number
-
-    // Validate that both values are valid numbers
     if (isNaN(executionTimeNum) || isNaN(memoryUsedNum)) {
       return new Response(
         JSON.stringify({ message: "Execution time and memory used must be valid numbers" }),
@@ -34,7 +40,6 @@ export async function POST(request) {
     const client = await clientPromise;
     const db = client.db("leetcode-clone");
 
-    // Construct the submission object
     const submission = {
       userId: objectIdUser,
       problemId: objectIdProblem,
