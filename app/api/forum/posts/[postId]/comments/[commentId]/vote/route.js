@@ -2,36 +2,28 @@ import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
-export async function POST(request, { params }) {
+export async function POST(request, context) {
   try {
-    const { postId } = params;
-    const { content, userId, username } = await request.json();
+    const { params } = context;
+    const { postId, commentId } = await params; // Await params to resolve the Promise
+    const { userId, voteType } = await request.json(); // voteType: "upvote" or "downvote"
 
-    if (!content || !userId || !username) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    if (!userId || !["upvote", "downvote"].includes(voteType)) {
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
     const client = await clientPromise;
     const db = client.db("leetcode-clone");
 
-    const newComment = {
-      _id: new ObjectId(),
-      content,
-      userId: new ObjectId(userId),
-      username,
-      createdAt: new Date(),
-      upvotes: 0, // Initialize vote counts
-      downvotes: 0,
-    };
-
+    const updateField = voteType === "upvote" ? "comments.$.upvotes" : "comments.$.downvotes";
     const result = await db.collection("forumPosts").findOneAndUpdate(
-      { _id: new ObjectId(postId) },
-      { $push: { comments: newComment } },
+      { _id: new ObjectId(postId), "comments._id": new ObjectId(commentId) },
+      { $inc: { [updateField]: 1 } },
       { returnDocument: "after" }
     );
 
     if (!result.value) {
-      return NextResponse.json({ error: "Post not found" }, { status: 404 });
+      return NextResponse.json({ error: "Post or comment not found" }, { status: 404 });
     }
 
     const updatedPost = {
@@ -51,7 +43,7 @@ export async function POST(request, { params }) {
 
     return NextResponse.json(updatedPost, { status: 200 });
   } catch (error) {
-    console.error("Error adding comment:", error);
-    return NextResponse.json({ error: "Failed to add comment" }, { status: 500 });
+    console.error("Error voting on comment:", error);
+    return NextResponse.json({ error: "Failed to vote" }, { status: 500 });
   }
 }

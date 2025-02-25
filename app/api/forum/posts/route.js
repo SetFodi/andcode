@@ -17,11 +17,15 @@ export async function GET(request) {
       ...post,
       _id: post._id.toString(),
       userId: post.userId.toString(),
+      upvotes: post.upvotes || 0, // Default to 0 if not present
+      downvotes: post.downvotes || 0,
       comments: post.comments
         ? post.comments.map((comment) => ({
             ...comment,
             _id: comment._id.toString(),
             userId: comment.userId.toString(),
+            upvotes: comment.upvotes || 0,
+            downvotes: comment.downvotes || 0,
           }))
         : [],
     }));
@@ -50,6 +54,8 @@ export async function POST(request) {
       userId: new ObjectId(userId),
       username,
       createdAt: new Date(),
+      upvotes: 0, // Initialize vote counts
+      downvotes: 0,
       comments: [],
     };
 
@@ -58,7 +64,7 @@ export async function POST(request) {
     const createdPost = {
       ...newPost,
       _id: result.insertedId.toString(),
-      userId: userId.toString(), // Return as string
+      userId: userId.toString(),
     };
 
     return NextResponse.json(createdPost, { status: 201 });
