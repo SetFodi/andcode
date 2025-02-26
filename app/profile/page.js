@@ -10,10 +10,11 @@ export default function ProfilePage() {
   const [redirectAttempted, setRedirectAttempted] = useState(false);
   const [redirectProgress, setRedirectProgress] = useState(0);
   const [redirectMessage, setRedirectMessage] = useState("Checking authentication...");
-
+  
   useEffect(() => {
     let progressInterval;
-    if (!loading && !redirectAttempted) {
+    
+    if (!loading) {
       // Start progress animation
       progressInterval = setInterval(() => {
         setRedirectProgress(prev => {
@@ -25,33 +26,31 @@ export default function ProfilePage() {
         });
       }, 50);
       
-      setRedirectAttempted(true);
-      
       if (user) {
-        const userId = user._id || user.userId;
+        console.log("ProfilePage: User found, redirecting to profile:", user);
+        const userId = user._id;
+        
         if (userId) {
           setRedirectMessage("Redirecting to your profile...");
-          setTimeout(() => {
-            router.push(`/profile/${userId}`);
-          }, 800); // Add small delay for smoother transition
+          // Use a more direct approach to navigation
+          window.location.href = `/profile/${userId}`;
         } else {
-          setRedirectMessage("User ID not found. Redirecting to sign in...");
-          setTimeout(() => {
-            router.push('/auth/signin');
-          }, 1000);
+          console.error("ProfilePage: User object has no _id:", user);
+          setRedirectMessage("User ID not found. Please try signing in again.");
         }
       } else {
+        console.log("ProfilePage: No user found, redirecting to sign in");
         setRedirectMessage("Please sign in to view your profile");
-        setTimeout(() => {
-          router.push('/auth/signin');
-        }, 1000);
+        router.push('/auth/signin');
       }
+      
+      setRedirectAttempted(true);
     }
     
     return () => {
       if (progressInterval) clearInterval(progressInterval);
     };
-  }, [user, loading, router, redirectAttempted]);
+  }, [user, loading, router]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex flex-col justify-center items-center p-4">

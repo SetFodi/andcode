@@ -13,30 +13,40 @@ export const useAuth = () => {
     checkUserSession();
   }, []);
 
-  const checkUserSession = async () => {
-    try {
-      const res = await fetch('/api/auth/me', {
-        method: 'GET',
-        credentials: 'include',
-        headers: { "Content-Type": "application/json" }
-      });
+  // In your useAuth.js
+const checkUserSession = async () => {
+  try {
+    console.log("useAuth: Checking user session");
+    const res = await fetch('/api/auth/me', {
+      method: 'GET',
+      credentials: 'include',
+      headers: { "Content-Type": "application/json" }
+    });
+    
+    console.log("useAuth: Session check response:", res.status);
+    
+    if (res.ok) {
+      const userData = await res.json();
+      console.log("useAuth: User data from session:", userData);
       
-      console.log("checkUserSession response:", res.status);
-      if (res.ok) {
-        const userData = await res.json();
-        console.log("User data from /me:", userData);
-        setUser(userData.user || null); // Ensure null if no user
+      if (userData.user && userData.user._id) {
+        console.log("useAuth: Valid user found in session");
+        setUser(userData.user);
       } else {
-        console.log("No valid session, status:", res.status);
+        console.log("useAuth: No valid user in response:", userData);
         setUser(null);
       }
-    } catch (error) {
-      console.error('Session check error:', error);
+    } else {
+      console.log("useAuth: No valid session, status:", res.status);
       setUser(null);
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (error) {
+    console.error('useAuth: Session check error:', error);
+    setUser(null);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const login = async (email, password) => {
     try {
