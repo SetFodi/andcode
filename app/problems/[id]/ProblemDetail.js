@@ -104,7 +104,6 @@ export default function ProblemDetail({ params }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Await params to get id
   useEffect(() => {
     const getId = async () => {
       const { id: paramId } = await params;
@@ -517,7 +516,7 @@ export default function ProblemDetail({ params }) {
                     </div>
 
                     <div className="space-y-4">
-                      <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Test Cases</h4>
+                      <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Test Case Results</h4>
                       <div className="space-y-3">
                         {results.results.map((result, idx) => (
                           <div
