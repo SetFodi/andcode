@@ -52,14 +52,14 @@ export default function UserProfilePage() {
     }
   }, [statistics.activityGraph]);
 
-  useEffect(() => {
+  useEffect(() => {// Complete the fetchUserData function in your profile page
     async function fetchUserData() {
       if (!userId || typeof userId !== "string") {
         setError("Invalid or missing User ID");
         setIsLoading(false);
         return;
       }
-
+    
       try {
         console.log("Fetching data for user:", userId);
         setLoadingProgress(30);
@@ -69,31 +69,77 @@ export default function UserProfilePage() {
           credentials: "include",
           headers: { "Content-Type": "application/json" },
         });
-
+    
         console.log("User data fetch response status:", userResponse.status);
-
+    
         if (!userResponse.ok) {
           const errorData = await userResponse.json().catch(() => ({ error: "Unknown error" }));
           throw new Error(errorData.error || `Failed to fetch user: ${userResponse.status}`);
         }
-
+    
         const userData = await userResponse.json();
         console.log("User data received:", userData);
-
+    
         if (!userData || !userData.username) {
           throw new Error("Invalid user data received");
         }
-
+    
         // Check if this is the current user
         if (user && user._id === userId) {
           userData.isCurrentUser = true;
         }
-
+    
         setUserData(userData);
         setLoadingProgress(60);
-
-        // Rest of your fetch logic for submissions and statistics
-        // ...
+    
+        // Fetch submissions
+        console.log("Fetching submissions for user:", userId);
+        const submissionsResponse = await fetch(`/api/users/${userId}/submissions?limit=10`, {
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        });
+    
+        if (!submissionsResponse.ok) {
+          const errorData = await submissionsResponse.json().catch(() => ({ error: "Unknown error" }));
+          console.warn("Submissions fetch failed, proceeding without submissions:", errorData.error);
+          setSubmissions([]); // Fallback to empty array instead of throwing
+        } else {
+          const submissionsData = await submissionsResponse.json();
+          console.log("Submissions data received:", submissionsData);
+          const submissionsArray = Array.isArray(submissionsData.submissions) ? submissionsData.submissions : [];
+          setSubmissions(submissionsArray);
+        }
+        setLoadingProgress(80);
+    
+        // Fetch statistics
+        console.log("Fetching statistics for user:", userId);
+        const statisticsResponse = await fetch(`/api/users/${userId}/statistics`, {
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        });
+    
+        if (!statisticsResponse.ok) {
+          const errorData = await statisticsResponse.json().catch(() => ({ error: "Unknown error" }));
+          console.warn("Statistics fetch failed, using defaults:", errorData.error);
+          setStatistics(prev => ({
+            ...prev,
+            totalSolved: 0,
+            successRate: 0,
+            ranking: 0,
+            difficultyBreakdown: { easy: 0, medium: 0, hard: 0 }
+          }));
+        } else {
+          const statisticsData = await statisticsResponse.json();
+          console.log("Statistics data received:", statisticsData);
+          setStatistics({
+            totalSolved: statisticsData.totalSolved || 0,
+            successRate: statisticsData.successRate || 0,
+            ranking: statisticsData.ranking || 0,
+            difficultyBreakdown: statisticsData.difficultyBreakdown || { easy: 0, medium: 0, hard: 0 },
+            activityGraph: Array.isArray(statisticsData.activityGraph) ? statisticsData.activityGraph : statistics.activityGraph
+          });
+        }
+        setLoadingProgress(100);
       } catch (err) {
         console.error("Error in fetchUserData:", err);
         setError(`Error loading profile: ${err.message}`);
