@@ -1,12 +1,10 @@
-// app/api/forum/posts/[postId]/comments/route.js
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
-export async function POST(request, context) {
+export async function POST(request, { params }) {
   try {
-    // Use context.params instead of directly destructuring
-    const postId = context.params.postId;
+    const { postId } = await params; // Await params and destructure
     const { content, userId, username } = await request.json();
 
     if (!content || !userId || !username) {

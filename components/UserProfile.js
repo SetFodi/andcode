@@ -174,16 +174,7 @@ export default function UserProfile({ userId, userData, submissions, statistics 
                       </span>
                     </div>
                   )}
-                  
-                  {userData.isCurrentUser && (
-                    <a 
-                      href="/settings/profile" 
-                      className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition-colors shadow-md"
-                      title="Edit Profile"
-                    >
-                      <Settings className="w-4 h-4" />
-                    </a>
-                  )}
+
                 </div>
                 
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
