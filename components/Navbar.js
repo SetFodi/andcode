@@ -20,12 +20,19 @@ import {
 } from "lucide-react";
 
 export default function Navbar() {
-  const { user, logout, loading } = useAuth();
+  const { user, logout, loading, checkUserSession } = useAuth(); // Added checkUserSession
   const { theme, toggleTheme } = useTheme();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+
+  useEffect(() => {
+    // Re-check session on mount to ensure navbar reflects current state
+    if (!loading && !user) {
+      checkUserSession();
+    }
+  }, [loading, user, checkUserSession]);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -51,7 +58,6 @@ export default function Navbar() {
     return pathname === path || pathname?.startsWith(`${path}/`);
   };
 
-  // Loading state with subtle animation
   if (loading) {
     return (
       <nav className="bg-gray-800 text-white dark:bg-gray-900 z-10">
@@ -72,7 +78,6 @@ export default function Navbar() {
       <nav className="bg-gray-800 text-white dark:bg-gray-900 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Logo and Main Navigation */}
             <div className="flex items-center">
               <Link href="/" className="font-bold text-xl flex items-center gap-2" onClick={closeMenus}>
                 <Code className="w-6 h-6 text-blue-500" />
@@ -114,7 +119,6 @@ export default function Navbar() {
               </div>
             </div>
 
-            {/* User Actions - Desktop */}
             <div className="hidden md:flex items-center space-x-3">
               <button
                 onClick={toggleTheme}
@@ -149,7 +153,6 @@ export default function Navbar() {
                     <ChevronDown className={`w-4 h-4 transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
 
-                  {/* Profile Dropdown */}
                   {isProfileMenuOpen && (
                     <div className="absolute right-0 mt-2 w-48 py-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-20">
                       <Link 
@@ -191,7 +194,6 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* Mobile Menu Button */}
             <div className="md:hidden flex items-center gap-3">
               <button
                 onClick={toggleTheme}
@@ -213,7 +215,6 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile Menu */}
         <div className={`${isMenuOpen ? "block" : "hidden"} md:hidden z-20`}>
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
             <Link 
@@ -242,7 +243,6 @@ export default function Navbar() {
             </Link>
           </div>
 
-          {/* User Section */}
           <div className="pt-4 pb-3 border-t border-gray-700 dark:border-gray-600">
             {user && (
               <div className="flex items-center px-4 py-2">
@@ -325,7 +325,6 @@ export default function Navbar() {
         </div>
       </nav>
       
-      {/* This div adds spacing to prevent navbar from covering content */}
       <div className="h-16"></div>
     </>
   );

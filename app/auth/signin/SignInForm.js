@@ -13,7 +13,7 @@ export default function SignInForm() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, login, loading } = useAuth();
+  const { user, login, loading, checkUserSession } = useAuth();
 
   const callbackUrl = searchParams.get("callbackUrl") || "/problems";
 
@@ -35,6 +35,7 @@ export default function SignInForm() {
 
       if (success) {
         console.log("SignIn: Login successful, redirecting to:", callbackUrl);
+        await checkUserSession(); // Force refresh after login
         router.push(callbackUrl);
       } else {
         setError("Invalid email or password");

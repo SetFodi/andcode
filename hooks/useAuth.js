@@ -25,7 +25,7 @@ export const useAuth = () => {
       if (res.ok) {
         const userData = await res.json();
         console.log("User data from /me:", userData);
-        setUser(userData.user);
+        setUser(userData.user || null); // Ensure null if no user
       } else {
         console.log("No valid session, status:", res.status);
         setUser(null);
@@ -48,14 +48,16 @@ export const useAuth = () => {
       });
       
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || 'Login failed');
+        const errorText = await res.text();
+        console.error("Login failed, response:", errorText);
+        throw new Error("Login failed");
       }
       
       const userData = await res.json();
       console.log("Login successful, user:", userData.user);
-      setUser(userData.user);
-      return true; // Let SignInForm handle redirect
+      setUser(userData.user); // Immediately update state
+      await checkUserSession(); // Double-check session to ensure sync
+      return true;
     } catch (error) {
       console.error('Login error:', error);
       return false;
@@ -78,5 +80,5 @@ export const useAuth = () => {
     }
   };
 
-  return { user, login, logout, loading };
+  return { user, login, logout, loading, checkUserSession }; // Expose checkUserSession for manual refresh
 };

@@ -31,7 +31,7 @@ export async function POST(request) {
     const cookieStore = await cookies();
     cookieStore.set("sessionToken", sessionToken, {
       httpOnly: true,
-      secure: true, // Must be true for HTTPS on Vercel
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 24, // 1 day
