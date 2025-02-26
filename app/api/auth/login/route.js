@@ -1,13 +1,14 @@
 // app/api/auth/login/route.js
 import { NextResponse } from "next/server";
-import { connectToDatabase } from "@/lib/mongodb-alt";
+import clientPromise from "@/lib/mongodb";
 import { cookies } from "next/headers";
-import bcrypt from "bcryptjs"; // Switch to bcryptjs for better compatibility
+import bcrypt from "bcryptjs"; // Change to bcryptjs if you have it installed
 
 export async function POST(request) {
   try {
     const { email, password } = await request.json();
-    const { db } = await connectToDatabase();
+    const client = await clientPromise;
+    const db = client.db("leetcode-clone");
     
     const user = await db.collection("users").findOne({ email });
     if (!user) {
@@ -24,7 +25,7 @@ export async function POST(request) {
     const sessionToken = Buffer.from(`${user._id}-${Date.now()}`).toString('base64');
     
     await db.collection("users").updateOne(
-      { _id: user._id },
+      { _id: user._id },  // Fixed from *id
       { $set: { sessionToken, lastActive: new Date() } }
     );
     
@@ -41,7 +42,7 @@ export async function POST(request) {
     
     return NextResponse.json({
       user: {
-        _id: user._id.toString(),
+        _id: user._id.toString(),  // Fixed from *id
         username: user.username,
         email: user.email,
         avatarUrl: user.avatarUrl || "",

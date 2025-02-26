@@ -8,14 +8,14 @@ export async function PUT(request) {
     const client = await clientPromise;
     const db = client.db("leetcode-clone");
     const profileData = await request.json();
-
+    
     // Mock user ID (replace with actual session-based ID)
     const userId = new ObjectId("your-user-id-here"); // Replace with real logic
-
+    
     const result = await db.collection("users").findOneAndUpdate(
-      { _id: userId },
-      { 
-        $set: { 
+      { _id: userId },  // Fixed from *id
+      {
+        $set: {
           username: profileData.username,
           email: profileData.email,
           bio: profileData.bio,
@@ -28,13 +28,13 @@ export async function PUT(request) {
       },
       { returnDocument: "after" }
     );
-
+    
     if (!result.value) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
-
+    
     return NextResponse.json({
-      _id: result.value._id.toString(),
+      _id: result.value._id.toString(),  // Fixed from *id
       username: result.value.username,
       email: result.value.email,
       bio: result.value.bio || "",

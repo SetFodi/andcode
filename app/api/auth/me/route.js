@@ -1,7 +1,7 @@
+// app/api/auth/me/route.js
 import { NextResponse } from "next/server";
-import { connectToDatabase } from "@/lib/mongodb-alt";
+import clientPromise from "@/lib/mongodb";
 import { cookies } from "next/headers";
-import { ObjectId } from "mongodb";
 
 export async function GET() {
   try {
@@ -15,7 +15,8 @@ export async function GET() {
       return NextResponse.json({ authenticated: false }, { status: 401 });
     }
     
-    const { db } = await connectToDatabase();
+    const client = await clientPromise;
+    const db = client.db("leetcode-clone");
     
     const user = await db.collection("users").findOne({ sessionToken });
     if (!user) {
