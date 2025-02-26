@@ -177,7 +177,7 @@ export default function UserProfile({ userId, userData, submissions, statistics 
                   
                   {userData.isCurrentUser && (
                     <a 
-                      href="/settings/profile" 
+                      href="/settings" 
                       className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition-colors shadow-md"
                       title="Edit Profile"
                     >
