@@ -1,15 +1,22 @@
-import { ObjectId } from "mongodb";
+import { NextResponse } from "next/server"; // Updated to modern Next.js Response
 import clientPromise from "@/lib/mongodb";
+import { ObjectId } from "mongodb";
 
 export async function POST(request) {
   try {
     const submissionData = await request.json();
 
+    // Require user authentication
+    if (!submissionData.userId) {
+      return NextResponse.json({ message: "Login required" }, { status: 401 });
+    }
+
+    // Basic input validation
     if (!submissionData.problemId || !submissionData.code || !submissionData.language) {
-      return new Response(
-        JSON.stringify({ message: "Missing required fields" }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
+    }
+    if (typeof submissionData.code !== "string" || submissionData.code.length > 10000) { // Limit code length
+      return NextResponse.json({ message: "Invalid or too long code" }, { status: 400 });
     }
 
     const { problemId, userId, code, language, status, executionTime, memoryUsed } = submissionData;
@@ -20,10 +27,7 @@ export async function POST(request) {
       objectIdUser = ObjectId.isValid(userId) ? new ObjectId(userId) : userId;
     } catch (e) {
       console.error("Invalid userId format:", userId);
-      return new Response(
-        JSON.stringify({ message: "Invalid userId format" }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return NextResponse.json({ message: "Invalid userId format" }, { status: 400 });
     }
 
     const objectIdProblem = new ObjectId(problemId);
@@ -31,10 +35,7 @@ export async function POST(request) {
     const memoryUsedNum = Number(memoryUsed);
 
     if (isNaN(executionTimeNum) || isNaN(memoryUsedNum)) {
-      return new Response(
-        JSON.stringify({ message: "Execution time and memory used must be valid numbers" }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return NextResponse.json({ message: "Execution time and memory used must be valid numbers" }, { status: 400 });
     }
 
     const client = await clientPromise;
@@ -43,7 +44,7 @@ export async function POST(request) {
     const submission = {
       userId: objectIdUser,
       problemId: objectIdProblem,
-      code,
+      code, // Sanitization not applied here as it's code for execution
       language,
       status,
       executionTime: executionTimeNum,
@@ -57,18 +58,12 @@ export async function POST(request) {
       throw new Error("Failed to save submission");
     }
 
-    return new Response(
-      JSON.stringify({
-        message: "Submission saved successfully",
-        submissionId: result.insertedId,
-      }),
-      { status: 201, headers: { 'Content-Type': 'application/json' } }
-    );
+    return NextResponse.json({
+      message: "Submission saved successfully",
+      submissionId: result.insertedId.toString(),
+    }, { status: 201 });
   } catch (error) {
     console.error("Error processing submission:", error);
-    return new Response(
-      JSON.stringify({ message: `Submission error: ${error.message}` }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return NextResponse.json({ message: `Submission error: ${error.message}` }, { status: 500 });
   }
 }

@@ -91,7 +91,8 @@ export default function ProblemDetail({ params }) {
   const { user } = useAuth();
 
   const [problem, setProblem] = useState(null);
-  const [code, setCode] = useState(LANGUAGES[0].initialCode); // Default to JavaScript initial code
+  const [code, setCode] = useState(LANGUAGES[0].initialCode);
+  const [customInput, setCustomInput] = useState("");
   const [results, setResults] = useState(null);
   const [timer, setTimer] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
@@ -100,6 +101,7 @@ export default function ProblemDetail({ params }) {
   const [userNotes, setUserNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
+  const [isLoading, setIsLoading] = useState(true); // Added explicit loading state
 
   useEffect(() => {
     let interval;
@@ -116,13 +118,13 @@ export default function ProblemDetail({ params }) {
   }, [id]);
 
   useEffect(() => {
-    // Update initial code when language changes
     const newLang = LANGUAGES.find((lang) => lang.value === selectedLanguage);
     setCode(newLang.initialCode);
   }, [selectedLanguage]);
 
   const fetchProblem = async () => {
     try {
+      setIsLoading(true);
       const response = await fetch(`/api/problems/${id}`);
       if (!response.ok) {
         notFound();
@@ -133,17 +135,25 @@ export default function ProblemDetail({ params }) {
       setIsRunning(true);
     } catch (error) {
       console.error("Failed to fetch problem:", error);
+      setError("Failed to load problem");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleRunCode = async () => {
+    if (!user || !user._id) { // Require login
+      setResults({ type: "error", message: "Login required to run code" });
+      return;
+    }
+
     try {
       const selectedLang = LANGUAGES.find((lang) => lang.value === selectedLanguage);
       const payload = {
         language: selectedLang.value,
         version: selectedLang.version,
         files: [{ name: `main.${selectedLang.extension}`, content: code }],
-        stdin: "",
+        stdin: customInput || "", // Allow customInput safely
         args: [],
       };
 
@@ -174,6 +184,11 @@ export default function ProblemDetail({ params }) {
   };
 
   const handleSubmitSolution = async () => {
+    if (!user || !user._id) { // Require login
+      setResults({ type: "error", message: "Login required to submit" });
+      return;
+    }
+
     try {
       if (!problem.testCases?.length) {
         setResults({ type: "error", message: "No test cases available for validation." });
@@ -196,7 +211,9 @@ export default function ProblemDetail({ params }) {
     try {
       setIsSubmitting(true);
 
-      const userId = user ? (user._id || user.userId) : "anonymous";
+      const userId = user._id; // No anonymous fallback
+      if (!userId) throw new Error("User ID not found");
+
       console.log("User ID from auth:", userId);
 
       const selectedLang = LANGUAGES.find((lang) => lang.value === selectedLanguage);
@@ -247,10 +264,20 @@ export default function ProblemDetail({ params }) {
     }
   };
 
-  if (!problem) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
         <LoadingSpinner className="w-12 h-12 text-blue-500" />
+      </div>
+    );
+  }
+
+  if (!problem) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-lg">
+          <h2 className="text-2xl font-semibold text-red-700 dark:text-red-400">Failed to load problem</h2>
+        </div>
       </div>
     );
   }
@@ -289,7 +316,6 @@ export default function ProblemDetail({ params }) {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Problem Section */}
           <div className="space-y-6">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
               <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Problem Statement</h3>
@@ -330,7 +356,6 @@ export default function ProblemDetail({ params }) {
             </div>
           </div>
 
-          {/* Coding Section */}
           <div className="space-y-6">
             <div className="rounded-xl overflow-hidden shadow-lg">
               <div className="flex items-center justify-between bg-gray-800 dark:bg-gray-700 px-4 py-3">
@@ -376,7 +401,7 @@ export default function ProblemDetail({ params }) {
               <button
                 onClick={handleSubmitSolution}
                 className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !user}
               >
                 {isSubmitting ? (
                   <>
