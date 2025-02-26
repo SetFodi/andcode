@@ -1,3 +1,4 @@
+// app/api/auth/login/route.js
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { cookies } from "next/headers";
@@ -21,19 +22,19 @@ export async function POST(request) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
-    // Generate a session token
     const sessionToken = Buffer.from(`${user._id}-${Date.now()}`).toString('base64');
     await db.collection("users").updateOne(
       { _id: user._id },
       { $set: { sessionToken, lastActive: new Date() } }
     );
 
-    const cookieStore = await cookies(); // Await cookies()
+    const cookieStore = await cookies();
     cookieStore.set("sessionToken", sessionToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: true, // Must be true for HTTPS on Vercel
+      sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 // 1 day
+      maxAge: 60 * 60 * 24, // 1 day
     });
 
     console.log("Login successful, sessionToken set:", sessionToken);
@@ -41,7 +42,8 @@ export async function POST(request) {
       user: {
         _id: user._id.toString(),
         username: user.username,
-        email: user.email
+        email: user.email,
+        avatarUrl: user.avatarUrl || "",
       }
     }, { status: 200 });
   } catch (error) {
