@@ -74,6 +74,7 @@ export function AuthProvider({ children }) {
       if (!res.ok) throw new Error('Logout failed');
       console.log("Logout successful");
       setUser(null);
+      await cookies().delete("sessionToken"); // Clear cookie on logout
       router.push('/auth/signin');
     } catch (error) {
       console.error('Logout error:', error);

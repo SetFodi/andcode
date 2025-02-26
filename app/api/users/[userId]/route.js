@@ -4,7 +4,7 @@ import { ObjectId } from "mongodb";
 
 export async function GET(request, { params }) {
   try {
-    const { userId } = await params;
+    const { userId } = await params; // Await params
 
     if (!userId || typeof userId !== "string" || userId.length !== 24) {
       return NextResponse.json({ error: "Invalid User ID format" }, { status: 400 });
@@ -21,18 +21,22 @@ export async function GET(request, { params }) {
     const db = client.db("leetcode-clone");
 
     const user = await db.collection("users").findOne({ _id: objectId });
-
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Ensure all required fields are present
     const userData = {
       _id: user._id.toString(),
       username: user.username || "Unknown User",
       email: user.email || null,
-      createdAt: user.createdAt || new Date().toISOString(),
-      avatarUrl: user.avatarUrl || null,
+      bio: user.bio || "",
+      location: user.location || "",
+      website: user.website || "",
+      github: user.github || "",
+      avatarUrl: user.avatarUrl || "",
+      createdAt: user.createdAt ? user.createdAt.toISOString() : new Date().toISOString(),
+      totalSubmissions: user.totalSubmissions || 0,
+      successfulSubmissions: user.successfulSubmissions || 0
     };
 
     console.log(`Fetched user data for ${userId}:`, userData);

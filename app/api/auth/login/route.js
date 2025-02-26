@@ -1,50 +1,51 @@
-import { NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
-import clientPromise from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
+import { NextResponse } from "next/server";
+import clientPromise from "@/lib/mongodb";
+import { cookies } from "next/headers";
+import bcrypt from "bcrypt";
 
 export async function POST(request) {
   try {
     const { email, password } = await request.json();
     const client = await clientPromise;
-    const db = client.db('leetcode-clone');
-    
-    const user = await db.collection('users').findOne({ email });
-    
-    if (!user || !await bcrypt.compare(password, user.password)) {
-      return NextResponse.json({ message: 'Invalid credentials' }, { status: 401 });
-    }
-    
-    const token = jwt.sign({ userId: user._id.toString() }, process.env.JWT_SECRET, { 
-      expiresIn: '7d' // Changed to 7 days for longer persistence
-    });
-    
-    const { password: _, ...userWithoutPassword } = user;
-    const userResponse = {
-      ...userWithoutPassword,
-      _id: user._id.toString(),
-      userId: user._id.toString()
-    };
+    const db = client.db("leetcode-clone");
 
-    const response = NextResponse.json({ 
-      message: 'Login successful',
-      user: userResponse
-    });
-    
-    response.cookies.set({
-      name: 'token',
-      value: token,
+    const user = await db.collection("users").findOne({ email });
+    if (!user) {
+      console.log("User not found for email:", email);
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    }
+
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      console.log("Password mismatch for email:", email);
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    }
+
+    // Generate a session token
+    const sessionToken = Buffer.from(`${user._id}-${Date.now()}`).toString('base64');
+    await db.collection("users").updateOne(
+      { _id: user._id },
+      { $set: { sessionToken, lastActive: new Date() } }
+    );
+
+    const cookieStore = await cookies(); // Await cookies()
+    cookieStore.set("sessionToken", sessionToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV !== 'development',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60 // 7 days in seconds
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24 // 1 day
     });
-    
-    return response;
+
+    console.log("Login successful, sessionToken set:", sessionToken);
+    return NextResponse.json({
+      user: {
+        _id: user._id.toString(),
+        username: user.username,
+        email: user.email
+      }
+    }, { status: 200 });
   } catch (error) {
-    console.error('Login API error:', error);
-    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
+    console.error("Login error:", error);
+    return NextResponse.json({ error: "Internal server error", details: error.message }, { status: 500 });
   }
 }

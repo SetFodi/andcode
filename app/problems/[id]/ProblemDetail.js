@@ -87,8 +87,8 @@ async function validateSolution(code, testCases, language) {
 }
 
 export default function ProblemDetail({ params }) {
-  const { id } = React.use(params);
-  const { user } = useAuth();
+  const [id, setId] = useState(null);
+  const { user, loading: authLoading } = useAuth();
 
   const [problem, setProblem] = useState(null);
   const [code, setCode] = useState(LANGUAGES[0].initialCode);
@@ -101,7 +101,17 @@ export default function ProblemDetail({ params }) {
   const [userNotes, setUserNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
-  const [isLoading, setIsLoading] = useState(true); // Added explicit loading state
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Await params to get id
+  useEffect(() => {
+    const getId = async () => {
+      const { id: paramId } = await params;
+      setId(paramId);
+    };
+    getId();
+  }, [params]);
 
   useEffect(() => {
     let interval;
@@ -112,10 +122,16 @@ export default function ProblemDetail({ params }) {
   }, [isRunning]);
 
   useEffect(() => {
-    if (id) {
-      fetchProblem();
+    console.log("ProblemDetail useEffect: user:", user, "authLoading:", authLoading, "id:", id);
+    if (!authLoading && id) {
+      if (!user) {
+        console.log("No user detected, redirecting to signin");
+        window.location.href = "/auth/signin";
+      } else {
+        fetchProblem();
+      }
     }
-  }, [id]);
+  }, [id, user, authLoading]);
 
   useEffect(() => {
     const newLang = LANGUAGES.find((lang) => lang.value === selectedLanguage);
@@ -123,26 +139,47 @@ export default function ProblemDetail({ params }) {
   }, [selectedLanguage]);
 
   const fetchProblem = async () => {
+    if (!id) return;
+    console.log("Fetching problem for ID:", id, "User:", user);
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/problems/${id}`);
+      setError(null);
+      const response = await fetch(`/api/problems/${id}`, {
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      
+      console.log("Fetch problem response status:", response.status);
       if (!response.ok) {
-        notFound();
-        return;
+        const errorText = await response.text();
+        console.error(`Failed to fetch problem: ${response.status} ${errorText}`);
+        if (response.status === 401) {
+          console.log("Unauthorized, redirecting to signin");
+          window.location.href = "/auth/signin";
+          return;
+        }
+        throw new Error(`Failed to load problem: ${response.status} - ${errorText}`);
       }
+      
       const data = await response.json();
+      console.log("Problem data:", data);
+      
+      if (!data || !data.title || !data.statement) {
+        throw new Error("Invalid problem data received");
+      }
+      
       setProblem(data);
       setIsRunning(true);
     } catch (error) {
       console.error("Failed to fetch problem:", error);
-      setError("Failed to load problem");
+      setError(error.message);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleRunCode = async () => {
-    if (!user || !user._id) { // Require login
+    if (!user || !user._id) {
       setResults({ type: "error", message: "Login required to run code" });
       return;
     }
@@ -153,10 +190,11 @@ export default function ProblemDetail({ params }) {
         language: selectedLang.value,
         version: selectedLang.version,
         files: [{ name: `main.${selectedLang.extension}`, content: code }],
-        stdin: customInput || "", // Allow customInput safely
+        stdin: customInput || "",
         args: [],
       };
 
+      console.log("Running code with payload:", payload);
       const res = await fetch("https://emkc.org/api/v2/piston/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -184,7 +222,7 @@ export default function ProblemDetail({ params }) {
   };
 
   const handleSubmitSolution = async () => {
-    if (!user || !user._id) { // Require login
+    if (!user || !user._id) {
       setResults({ type: "error", message: "Login required to submit" });
       return;
     }
@@ -211,11 +249,10 @@ export default function ProblemDetail({ params }) {
     try {
       setIsSubmitting(true);
 
-      const userId = user._id; // No anonymous fallback
+      const userId = user._id;
       if (!userId) throw new Error("User ID not found");
 
-      console.log("User ID from auth:", userId);
-
+      console.log("Submitting solution for user:", userId);
       const selectedLang = LANGUAGES.find((lang) => lang.value === selectedLanguage);
       const submission = {
         userId: userId,
@@ -227,11 +264,10 @@ export default function ProblemDetail({ params }) {
         memoryUsed: testResults.results[0]?.memoryUsage || 0,
       };
 
-      console.log("Submission payload:", submission);
-
       const response = await fetch("/api/submissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(submission),
       });
 
@@ -239,6 +275,11 @@ export default function ProblemDetail({ params }) {
       console.log("Submission response:", responseData);
 
       if (!response.ok) {
+        if (response.status === 401) {
+          console.log("Unauthorized submission, redirecting to signin");
+          window.location.href = "/auth/signin";
+          return;
+        }
         throw new Error(responseData.message || `Server error: ${response.status}`);
       }
 
@@ -264,10 +305,26 @@ export default function ProblemDetail({ params }) {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
         <LoadingSpinner className="w-12 h-12 text-blue-500" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-lg">
+          <h2 className="text-2xl font-semibold text-red-700 dark:text-red-400">{error}</h2>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
@@ -276,7 +333,7 @@ export default function ProblemDetail({ params }) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
         <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-lg">
-          <h2 className="text-2xl font-semibold text-red-700 dark:text-red-400">Failed to load problem</h2>
+          <h2 className="text-2xl font-semibold text-red-700 dark:text-red-400">Problem not found</h2>
         </div>
       </div>
     );
