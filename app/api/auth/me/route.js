@@ -1,11 +1,11 @@
-// app/api/auth/me/route.js
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { cookies } from "next/headers";
 
 export async function GET() {
   try {
-    const cookieStore = cookies();
+    // Fix: Await the cookies() call
+    const cookieStore = await cookies();
     const sessionToken = cookieStore.get("sessionToken")?.value;
     
     console.log("Auth/me: Session token received:", sessionToken);
