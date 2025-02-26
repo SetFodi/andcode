@@ -4,11 +4,7 @@ import { ObjectId } from "mongodb";
 
 export async function POST(request, { params }) {
   try {
-<<<<<<< HEAD
     const { postId, commentId } = await params;
-=======
-    const { postId, commentId } = await params; // Await params
->>>>>>> 0d50bd7f23238a15e02de2ec2e5231515c422633
     const { userId, voteType } = await request.json();
 
     if (!ObjectId.isValid(postId) || !ObjectId.isValid(commentId) || !ObjectId.isValid(userId)) {
