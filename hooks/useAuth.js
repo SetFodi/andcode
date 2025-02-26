@@ -1,11 +1,10 @@
+// hooks/useAuth.js
 "use client";
 
-import { useState, useEffect, createContext, useContext } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-const AuthContext = createContext({});
-
-export function AuthProvider({ children }) {
+export const useAuth = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -56,8 +55,7 @@ export function AuthProvider({ children }) {
       const userData = await res.json();
       console.log("Login successful, user:", userData.user);
       setUser(userData.user);
-      router.push('/problems');
-      return true;
+      return true; // Let SignInForm handle redirect
     } catch (error) {
       console.error('Login error:', error);
       return false;
@@ -80,11 +78,5 @@ export function AuthProvider({ children }) {
     }
   };
 
-  return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
-
-export const useAuth = () => useContext(AuthContext);
+  return { user, login, logout, loading };
+};

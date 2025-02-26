@@ -1,3 +1,4 @@
+// components/Navbar.js
 "use client";
 
 import { useState, useEffect } from "react";
@@ -19,8 +20,7 @@ import {
 } from "lucide-react";
 
 export default function Navbar() {
-  const auth = useAuth();
-  const { user, logout, loading } = auth || { user: null, logout: () => {}, loading: true };
+  const { user, logout, loading } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
