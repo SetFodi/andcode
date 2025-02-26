@@ -20,10 +20,14 @@ export default function SignInForm() {
   useEffect(() => {
     if (!loading && user) {
       console.log("SignIn: User is already authenticated, redirecting to:", callbackUrl);
-      router.push(callbackUrl);
+      // Use direct navigation for profile URLs to avoid potential Next.js router issues
+      if (callbackUrl.includes('/profile/')) {
+        window.location.href = callbackUrl;
+      } else {
+        router.push(callbackUrl);
+      }
     }
   }, [user, loading, router, callbackUrl]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -36,7 +40,13 @@ export default function SignInForm() {
       if (success) {
         console.log("SignIn: Login successful, redirecting to:", callbackUrl);
         await checkUserSession(); // Force refresh after login
-        router.push(callbackUrl);
+        
+        // Use direct navigation for profile URLs
+        if (callbackUrl.includes('/profile/')) {
+          window.location.href = callbackUrl;
+        } else {
+          router.push(callbackUrl);
+        }
       } else {
         setError("Invalid email or password");
       }

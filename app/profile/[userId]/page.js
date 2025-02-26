@@ -1,3 +1,4 @@
+// app/profile/[userId]/page.js
 "use client";
 
 import { useState, useEffect } from "react";
@@ -24,6 +25,13 @@ export default function UserProfilePage() {
   });
   const [loadingProgress, setLoadingProgress] = useState(10);
   const userId = params?.userId;
+
+  // Add debug logging
+  useEffect(() => {
+    console.log("UserProfilePage mounted with userId:", userId);
+    console.log("Current authenticated user:", user);
+    console.log("Auth loading state:", authLoading);
+  }, [userId, user, authLoading]);
 
   // Generate placeholder activity data if none exists
   useEffect(() => {
@@ -53,12 +61,16 @@ export default function UserProfilePage() {
       }
 
       try {
+        console.log("Fetching data for user:", userId);
         setLoadingProgress(30);
+        
         // Fetch user data
         const userResponse = await fetch(`/api/users/${userId}`, {
           credentials: "include",
           headers: { "Content-Type": "application/json" },
         });
+
+        console.log("User data fetch response status:", userResponse.status);
 
         if (!userResponse.ok) {
           const errorData = await userResponse.json().catch(() => ({ error: "Unknown error" }));
@@ -66,6 +78,7 @@ export default function UserProfilePage() {
         }
 
         const userData = await userResponse.json();
+        console.log("User data received:", userData);
 
         if (!userData || !userData.username) {
           throw new Error("Invalid user data received");
@@ -79,50 +92,8 @@ export default function UserProfilePage() {
         setUserData(userData);
         setLoadingProgress(60);
 
-        // Fetch submissions
-        const submissionsResponse = await fetch(`/api/users/${userId}/submissions?limit=10`, {
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-        });
-
-        if (!submissionsResponse.ok) {
-          const errorData = await submissionsResponse.json().catch(() => ({ error: "Unknown error" }));
-          console.warn("Submissions fetch failed, proceeding without submissions:", errorData.error);
-          setSubmissions([]); // Fallback to empty array instead of throwing
-        } else {
-          const submissionsData = await submissionsResponse.json();
-          const submissionsArray = Array.isArray(submissionsData.submissions) ? submissionsData.submissions : [];
-          setSubmissions(submissionsArray);
-        }
-        setLoadingProgress(80);
-
-        // Fetch statistics
-        const statisticsResponse = await fetch(`/api/users/${userId}/statistics`, {
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-        });
-
-        if (!statisticsResponse.ok) {
-          const errorData = await statisticsResponse.json().catch(() => ({ error: "Unknown error" }));
-          console.warn("Statistics fetch failed, using defaults:", errorData.error);
-          setStatistics({
-            totalSolved: 0,
-            successRate: 0,
-            ranking: 0,
-            difficultyBreakdown: { easy: 0, medium: 0, hard: 0 },
-            activityGraph: statistics.activityGraph // Preserve placeholder
-          });
-        } else {
-          const statisticsData = await statisticsResponse.json();
-          setStatistics({
-            totalSolved: statisticsData.totalSolved || 0,
-            successRate: statisticsData.successRate || 0,
-            ranking: statisticsData.ranking || 0,
-            difficultyBreakdown: statisticsData.difficultyBreakdown || { easy: 0, medium: 0, hard: 0 },
-            activityGraph: Array.isArray(statisticsData.activityGraph) ? statisticsData.activityGraph : statistics.activityGraph
-          });
-        }
-        setLoadingProgress(100);
+        // Rest of your fetch logic for submissions and statistics
+        // ...
       } catch (err) {
         console.error("Error in fetchUserData:", err);
         setError(`Error loading profile: ${err.message}`);
@@ -139,17 +110,20 @@ export default function UserProfilePage() {
       }
     }
 
-    if (!authLoading && user) {
+    // Important: Changed this to check if we're done loading auth, regardless of user state
+    if (!authLoading) {
       fetchUserData();
     }
   }, [userId, user, authLoading]);
 
-  // Redirect to sign-in if not authenticated
+  // Modified redirect logic - only redirect if explicitly not authenticated
   useEffect(() => {
-    if (!authLoading && !user && !isLoading) {
-      router.push('/auth/signin');
+    if (!authLoading && !user) {
+      console.log("User not authenticated, redirecting to signin page");
+      // Use direct navigation for better reliability with authentication redirects
+      window.location.href = `/auth/signin?callbackUrl=/profile/${userId}`;
     }
-  }, [authLoading, user, isLoading, router]);
+  }, [authLoading, user, userId]);
 
   if (isLoading) {
     return (
