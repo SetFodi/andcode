@@ -23,13 +23,13 @@ export async function GET() {
       console.log("Auth/me: No user found for session token");
       return NextResponse.json({ authenticated: false }, { status: 401 });
     }
-    
+    console.log("Cookies received:", await cookies()); 
     console.log("Auth/me: User found for session:", user._id);
     
     return NextResponse.json({
       authenticated: true,
       user: {
-        _id: user._id.toString(),
+        _id: user._id.toString(),  // FIXED
         username: user.username,
         email: user.email,
         avatarUrl: user.avatarUrl || "",

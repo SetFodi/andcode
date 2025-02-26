@@ -66,7 +66,6 @@ export async function GET(request, { params }) {
       userId: sub.userId.toString(),
       problemId: sub.problemId.toString(),
     }));
-
     return NextResponse.json({ submissions: formattedSubmissions }, { status: 200 });
   } catch (error) {
     console.error("Error fetching user submissions:", error);
