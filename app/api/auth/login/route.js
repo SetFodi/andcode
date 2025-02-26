@@ -1,43 +1,44 @@
 // app/api/auth/login/route.js
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { connectToDatabase } from "@/lib/mongodb-alt";
 import { cookies } from "next/headers";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs"; // Switch to bcryptjs for better compatibility
 
 export async function POST(request) {
   try {
     const { email, password } = await request.json();
-    const client = await clientPromise;
-    const db = client.db("leetcode-clone");
-
+    const { db } = await connectToDatabase();
+    
     const user = await db.collection("users").findOne({ email });
     if (!user) {
       console.log("User not found for email:", email);
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
-
+    
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
       console.log("Password mismatch for email:", email);
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
-
+    
     const sessionToken = Buffer.from(`${user._id}-${Date.now()}`).toString('base64');
+    
     await db.collection("users").updateOne(
       { _id: user._id },
       { $set: { sessionToken, lastActive: new Date() } }
     );
-
-    const cookieStore = await cookies();
+    
+    const cookieStore = cookies();
     cookieStore.set("sessionToken", sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24, // 1 day
+      maxAge: 60 * 60 * 24 // 1 day
     });
-
+    
     console.log("Login successful, sessionToken set:", sessionToken);
+    
     return NextResponse.json({
       user: {
         _id: user._id.toString(),
