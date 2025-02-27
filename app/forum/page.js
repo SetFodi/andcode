@@ -257,7 +257,7 @@ export default function Forum() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="flex justify-center items-center min-h-screen bg-white dark:bg-gray-900">
         <div className="flex flex-col items-center gap-4">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
           <p className="text-blue-600 dark:text-blue-400 font-medium">Loading forum...</p>
@@ -267,10 +267,10 @@ export default function Forum() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
+    <div className="max-w-5xl mx-auto p-4 sm:p-6 bg-white dark:bg-gray-900 min-h-screen">
       <header className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
             Community Forum
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
@@ -298,7 +298,7 @@ export default function Forum() {
           {user && (
             <button
               onClick={() => setShowNewPostForm(!showNewPostForm)}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
             >
               {showNewPostForm ? (
                 <>
@@ -338,8 +338,8 @@ export default function Forum() {
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden"
           >
-            <div className="mb-8 p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <div className="mb-8 p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md dark:shadow-gray-800/30 border border-gray-200 dark:border-gray-700">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
                 <Edit className="w-5 h-5 text-blue-500" />
                 Create a New Post
               </h2>
@@ -368,7 +368,7 @@ export default function Forum() {
                 <div className="flex justify-end">
                   <button
                     type="submit"
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg flex items-center gap-2"
+                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg transition-colors shadow-md hover:shadow-lg flex items-center gap-2"
                   >
                     <Send className="w-4 h-4" />
                     Publish Post
@@ -388,16 +388,16 @@ export default function Forum() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
-              className="p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-md hover:shadow-lg transition-shadow border border-gray-100 dark:border-gray-700"
+              className="p-5 sm:p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700"
             >
               <div className="flex items-start gap-4">
-                <div className="flex flex-col items-center gap-1 bg-gray-50 dark:bg-gray-900 p-2 rounded-lg">
+                <div className="flex flex-col items-center gap-1 bg-gray-100 dark:bg-gray-900 p-2 rounded-lg">
                   <button
                     onClick={() => handleVotePost(post._id, "upvote")}
                     className={`p-1 rounded-md transition-colors ${
                       post.upvoters.includes(user?._id)
                         ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" 
-                        : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        : "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                     }`}
                     disabled={!user}
                     title={user ? "Upvote" : "Log in to vote"}
@@ -418,7 +418,7 @@ export default function Forum() {
                     className={`p-1 rounded-md transition-colors ${
                       post.downvoters.includes(user?._id) 
                         ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400" 
-                        : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        : "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                     }`}
                     disabled={!user}
                     title={user ? "Downvote" : "Log in to vote"}
@@ -428,7 +428,7 @@ export default function Forum() {
                 </div>
                 
                 <div className="flex-1">
-                  <h3 className="text-xl font-semibold mb-2">{post.title || "Untitled"}</h3>
+                  <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">{post.title || "Untitled"}</h3>
                   <p className="text-gray-700 dark:text-gray-300 mb-4 whitespace-pre-line">{post.content || ""}</p>
                   
                   <div className="flex flex-wrap gap-4 mb-4 text-sm text-gray-600 dark:text-gray-400">
@@ -465,7 +465,7 @@ export default function Forum() {
                           post.comments.map((comment) => (
                             <div 
                               key={comment._id} 
-                              className="pl-4 border-l-2 border-blue-300 dark:border-blue-700 flex items-start gap-4 py-3 px-4 bg-gray-50 dark:bg-gray-850 rounded-lg"
+                              className="pl-4 border-l-2 border-blue-300 dark:border-blue-700 flex items-start gap-3 py-3 px-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
                             >
                               <div className="flex flex-col items-center gap-1">
                                 <button
@@ -473,7 +473,7 @@ export default function Forum() {
                                   className={`p-1 rounded-full transition-colors ${
                                     comment.upvoters.includes(user?._id) 
                                       ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" 
-                                      : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                      : "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
                                   }`}
                                   disabled={!user}
                                   title={user ? "Upvote" : "Log in to vote"}
@@ -494,7 +494,7 @@ export default function Forum() {
                                   className={`p-1 rounded-full transition-colors ${
                                     comment.downvoters.includes(user?._id) 
                                       ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400" 
-                                      : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                      : "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
                                   }`}
                                   disabled={!user}
                                   title={user ? "Downvote" : "Log in to vote"}
@@ -525,7 +525,7 @@ export default function Forum() {
                         )}
 
                         {user && (
-                          <div className="mt-4 bg-gray-50 dark:bg-gray-850 p-4 rounded-lg">
+                          <div className="mt-4 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
                             <label htmlFor={`comment-${post._id}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                               Add your thoughts
                             </label>
@@ -535,12 +535,12 @@ export default function Forum() {
                                 placeholder="Write a comment..."
                                 value={newComments[post._id] || ""}
                                 onChange={(e) => setNewComments({ ...newComments, [post._id]: e.target.value })}
-                                className="flex-1 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-sm"
+                                className="flex-1 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-sm"
                                 rows={2}
                               />
                               <button
                                 onClick={() => handleAddComment(post._id)}
-                                className="self-end px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                                className="self-end px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 disabled={!newComments[post._id]?.trim()}
                               >
                                 <Send className="w-4 h-4" />
@@ -557,16 +557,16 @@ export default function Forum() {
             </motion.div>
           ))
         ) : (
-          <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-100 dark:border-gray-700">
+          <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700">
             <Award className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-            <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">No posts yet</h3>
+            <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-2">No posts yet</h3>
             <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto mb-6">
               Be the first to start a discussion in our community!
             </p>
             {user ? (
               <button
                 onClick={() => setShowNewPostForm(true)}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg transition-colors inline-flex items-center gap-2"
               >
                 <Edit className="w-4 h-4" />
                 Create a Post
