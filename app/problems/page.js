@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProblemsList from '@/components/ProblemsList';
+import ProtectedRoute from '@/components/ProtectedRoute';
 import { motion } from 'framer-motion';
 import { Code, Brain, BookOpen, Database, Cpu } from 'lucide-react';
 
@@ -86,8 +87,8 @@ export default function ProblemsPage() {
   if (!user) return null; // Will redirect due to useEffect
   
   return (
-    <div>
+    <ProtectedRoute requireVerification={true}>
       <ProblemsList />
-    </div>
+    </ProtectedRoute>
   );
 }

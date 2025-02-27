@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 
 export async function GET() {
   try {
-    // Fix: Await the cookies() call
+    // Await cookies() before getting the session token
     const cookieStore = await cookies();
     const sessionToken = cookieStore.get("sessionToken")?.value;
     
@@ -23,16 +23,18 @@ export async function GET() {
       console.log("Auth/me: No user found for session token");
       return NextResponse.json({ authenticated: false }, { status: 401 });
     }
-    console.log("Cookies received:", await cookies()); 
+    
     console.log("Auth/me: User found for session:", user._id);
     
+    // Include verification status in the response
     return NextResponse.json({
       authenticated: true,
       user: {
-        _id: user._id.toString(),  // FIXED
+        _id: user._id.toString(),
         username: user.username,
         email: user.email,
         avatarUrl: user.avatarUrl || "",
+        isVerified: user.isVerified || false
       }
     });
   } catch (error) {

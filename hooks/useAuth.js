@@ -1,4 +1,3 @@
-// hooks/useAuth.js
 "use client";
 
 import { useState, useEffect } from "react";
@@ -13,40 +12,39 @@ export const useAuth = () => {
     checkUserSession();
   }, []);
 
-  // In your useAuth.js
-const checkUserSession = async () => {
-  try {
-    console.log("useAuth: Checking user session");
-    const res = await fetch('/api/auth/me', {
-      method: 'GET',
-      credentials: 'include',
-      headers: { "Content-Type": "application/json" }
-    });
-    
-    console.log("useAuth: Session check response:", res.status);
-    
-    if (res.ok) {
-      const userData = await res.json();
-      console.log("useAuth: User data from session:", userData);
+  const checkUserSession = async () => {
+    try {
+      console.log("useAuth: Checking user session");
+      const res = await fetch('/api/auth/me', {
+        method: 'GET',
+        credentials: 'include',
+        headers: { "Content-Type": "application/json" }
+      });
       
-      if (userData.user && userData.user._id) {
-        console.log("useAuth: Valid user found in session");
-        setUser(userData.user);
+      console.log("useAuth: Session check response:", res.status);
+      
+      if (res.ok) {
+        const userData = await res.json();
+        console.log("useAuth: User data from session:", userData);
+        
+        if (userData.user && userData.user._id) {
+          console.log("useAuth: Valid user found in session");
+          setUser(userData.user);
+        } else {
+          console.log("useAuth: No valid user in response:", userData);
+          setUser(null);
+        }
       } else {
-        console.log("useAuth: No valid user in response:", userData);
+        console.log("useAuth: No valid session, status:", res.status);
         setUser(null);
       }
-    } else {
-      console.log("useAuth: No valid session, status:", res.status);
+    } catch (error) {
+      console.error('useAuth: Session check error:', error);
       setUser(null);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('useAuth: Session check error:', error);
-    setUser(null);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const login = async (email, password) => {
     try {
@@ -65,6 +63,15 @@ const checkUserSession = async () => {
       
       const userData = await res.json();
       console.log("Login successful, user:", userData.user);
+      
+      // Check if user is verified
+      if (userData.user && userData.user.isVerified === false) {
+        console.log("User is not verified, redirecting to verification page");
+        setUser(userData.user);
+        router.push('/auth/verify-email');
+        return "unverified";
+      }
+      
       setUser(userData.user); // Immediately update state
       await checkUserSession(); // Double-check session to ensure sync
       return true;
@@ -90,5 +97,19 @@ const checkUserSession = async () => {
     }
   };
 
-  return { user, login, logout, loading, checkUserSession }; // Expose checkUserSession for manual refresh
+  // Function to check if user can access a protected route
+  const canAccess = (requiresVerification = true) => {
+    if (!user) return false;
+    if (requiresVerification && user.isVerified === false) return false;
+    return true;
+  };
+
+  return { 
+    user, 
+    login, 
+    logout, 
+    loading, 
+    checkUserSession,
+    canAccess
+  };
 };
