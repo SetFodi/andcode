@@ -19,7 +19,9 @@ async function createCollections() {
             username: { bsonType: "string" },
             totalSubmissions: { bsonType: "int" },
             successfulSubmissions: { bsonType: "int" },
-            lastSubmission: { bsonType: "date" }
+            lastSubmission: { bsonType: "date" },
+            // Add createdAt if you're setting it on user documents:
+            createdAt: { bsonType: "date" }
           }
         }
       }
@@ -43,8 +45,9 @@ async function createCollections() {
             code: { bsonType: "string" },
             language: { bsonType: "string" },
             status: { bsonType: "string" },
-            executionTime: { bsonType: "number" },
-            memoryUsed: { bsonType: "number" },
+            // Use int or double; "number" is not a valid bsonType in MongoDB
+            executionTime: { bsonType: "double" },
+            memoryUsed: { bsonType: "double" },
             timestamp: { bsonType: "date" }
           }
         }
@@ -75,7 +78,7 @@ async function seed() {
   await createCollections();
 
   const problems = [
-    // Easy Problems (20+)
+    // Easy Problems
     {
       title: "Sum of Two Numbers",
       description: "Given two numbers, return their sum.",
@@ -455,7 +458,7 @@ async function seed() {
       dislikes: 0
     },
 
-    // Medium Problems (5)
+    // Medium Problems
     {
       title: "Binary Tree Level Order Traversal",
       description: "Given a binary tree, return the level order traversal of its nodes' values.",
@@ -547,7 +550,7 @@ async function seed() {
       dislikes: 0
     },
 
-    // Hard Problems (3)
+    // Hard Problems
     {
       title: "Merge K Sorted Lists",
       description: "Merge k sorted linked lists into one sorted linked list.",
@@ -605,12 +608,15 @@ async function seed() {
   ];
 
   try {
+    // Clear existing problems
     await db.collection("problems").deleteMany({});
     console.log("Cleared existing problems");
 
+    // Insert new problems
     const result = await db.collection("problems").insertMany(problems);
     console.log(`Successfully inserted ${result.insertedCount} problems`);
 
+    // Sample user
     const sampleUser = {
       email: "test@example.com",
       username: "testuser",
@@ -624,6 +630,7 @@ async function seed() {
       await db.collection("users").insertOne(sampleUser);
       console.log("Created sample user");
     } catch (e) {
+      // 11000 indicates a duplicate key error
       if (e.code !== 11000) {
         console.error("Error creating sample user:", e);
       }
