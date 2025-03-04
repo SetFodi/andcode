@@ -13,7 +13,8 @@ const LANGUAGES = [
   { name: "Java", value: "java", version: "15.0.2", extension: "java", initialCode: "public class Main {\n    public static void main(String[] args) {\n        // Write your solution here\n    }\n}" },
 ];
 
-async function validateSolution(code, testCases, language) {
+// Enhanced validateSolution function to prevent hardcoding
+async function validateSolution(code, testCases, language, problemTitle) {
   if (!testCases || !Array.isArray(testCases) || testCases.length === 0) {
     throw new Error("No test cases available for validation");
   }
@@ -21,15 +22,57 @@ async function validateSolution(code, testCases, language) {
   const selectedLang = LANGUAGES.find((lang) => lang.value === language);
   if (!selectedLang) throw new Error("Unsupported language");
 
+  // Add additional test cases to prevent hardcoding
+  const extendedTestCases = createExtendedTestCases(testCases, problemTitle);
+  
   const results = [];
   let passedCount = 0;
+  let dynamicTestsPassed = 0;
+  let isDynamicTestsAvailable = extendedTestCases.some(tc => tc.isDynamic);
 
-  for (const [index, testCase] of testCases.entries()) {
+  // Check for some common hardcoding patterns directly in the submitted code
+  const simpleHardcodingCheck = checkForSimpleHardcoding(code, extendedTestCases, language);
+  if (simpleHardcodingCheck.isHardcoded) {
+    return {
+      correct: false,
+      passedCount: 0,
+      totalTests: extendedTestCases.length,
+      results: [
+        {
+          testCase: 1,
+          input: "N/A",
+          expected: "N/A",
+          output: simpleHardcodingCheck.message,
+          passed: false,
+          executionTime: 0,
+          memoryUsage: 0,
+          isDynamic: false
+        }
+      ],
+      allDynamicTestsPassed: false
+    };
+  }
+
+  for (const [index, testCase] of extendedTestCases.entries()) {
     try {
+      // Wrap the user code in a solution checker that prevents hardcoding
+      let wrappedCode = code;
+      
+      if (language === "javascript") {
+        // JavaScript wrapper
+        wrappedCode = wrapJavaScriptCode(code, testCase);
+      } else if (language === "python") {
+        // Python wrapper
+        wrappedCode = wrapPythonCode(code, testCase);
+      } else if (language === "java") {
+        // Java wrapper
+        wrappedCode = wrapJavaCode(code, testCase);
+      }
+
       const payload = {
         language: selectedLang.value,
         version: selectedLang.version,
-        files: [{ name: `main.${selectedLang.extension}`, content: code }],
+        files: [{ name: `main.${selectedLang.extension}`, content: wrappedCode }],
         stdin: testCase.input,
         args: [],
       };
@@ -47,13 +90,21 @@ async function validateSolution(code, testCases, language) {
 
       const data = await res.json();
       console.log(`Test case ${index + 1} response:`, data);
-
+      
       const output = data.run.stdout.trim();
       const stderr = data.run.stderr.trim();
       const expected = testCase.expectedOutput.trim();
-      const passed = output === expected;
+      
+      // Check if the output contains the expected result (might be surrounded by other content)
+      const outputLines = output.split('\n');
+      const passed = outputLines.some(line => line.trim() === expected);
 
-      if (passed) passedCount++;
+      if (passed) {
+        passedCount++;
+        if (testCase.isDynamic) {
+          dynamicTestsPassed++;
+        }
+      }
 
       results.push({
         testCase: index + 1,
@@ -63,6 +114,7 @@ async function validateSolution(code, testCases, language) {
         passed,
         executionTime: data.run.time || 0,
         memoryUsage: data.run.memory || 0,
+        isDynamic: testCase.isDynamic || false
       });
     } catch (error) {
       console.error(`Test case ${index + 1} execution error:`, error);
@@ -74,16 +126,343 @@ async function validateSolution(code, testCases, language) {
         passed: false,
         executionTime: 0,
         memoryUsed: 0,
+        isDynamic: testCase.isDynamic || false
       });
     }
   }
 
+  // Check if all dynamic tests passed
+  const allDynamicTestsPassed = isDynamicTestsAvailable ? 
+    dynamicTestsPassed === extendedTestCases.filter(tc => tc.isDynamic).length : 
+    true;
+
   return {
-    correct: passedCount === testCases.length,
+    correct: passedCount === extendedTestCases.length && allDynamicTestsPassed,
     passedCount,
-    totalTests: testCases.length,
+    totalTests: extendedTestCases.length,
     results,
+    allDynamicTestsPassed
   };
+}
+
+// Additional check for simple hardcoding patterns
+function checkForSimpleHardcoding(code, testCases, language) {
+  let isHardcoded = false;
+  let message = "";
+  
+  // All expected outputs combined in a single string (to catch multiple hardcodings in one submission)
+  const allExpectedOutputs = testCases.map(tc => tc.expectedOutput).join('|');
+  
+  if (language === "javascript") {
+    // Check for a series of if/else statements that just return the expected outputs
+    const ifElseHardcodingPattern = new RegExp(`if\\s*\\(.*?(${allExpectedOutputs}).*?\\)`, 'i');
+    const switchCaseHardcodingPattern = new RegExp(`switch\\s*\\(.*?\\)\\s*{[^}]*?(${allExpectedOutputs})[^}]*?}`, 'i');
+    
+    if (ifElseHardcodingPattern.test(code) || switchCaseHardcodingPattern.test(code)) {
+      isHardcoded = true;
+      message = "Potential hardcoding detected. Your solution should work for any input, not just the test cases.";
+    }
+  } else if (language === "python") {
+    // Similar checks for Python
+    const ifElseHardcodingPattern = new RegExp(`if\\s+.*?(${allExpectedOutputs}).*?:`, 'i');
+    
+    if (ifElseHardcodingPattern.test(code)) {
+      isHardcoded = true;
+      message = "Potential hardcoding detected. Your solution should work for any input, not just the test cases.";
+    }
+  }
+  
+  return { isHardcoded, message };
+}
+
+// Function to create extended test cases to prevent hardcoding
+function createExtendedTestCases(originalTestCases, problemTitle) {
+  const extendedTestCases = [...originalTestCases];
+  
+  // Add dynamic test cases based on problem type
+  if (problemTitle.includes("Reverse a String")) {
+    // Add dynamic string reversal tests
+    extendedTestCases.push({
+      input: "javascript",
+      expectedOutput: "tpircsavaj",
+      isDynamic: true
+    });
+    extendedTestCases.push({
+      input: "algorithm",
+      expectedOutput: "mhtirogla",
+      isDynamic: true
+    });
+  } 
+  else if (problemTitle.includes("Sum of Two")) {
+    // Add dynamic sum tests
+    extendedTestCases.push({
+      input: "8\n12",
+      expectedOutput: "20",
+      isDynamic: true
+    });
+    extendedTestCases.push({
+      input: "15\n27",
+      expectedOutput: "42",
+      isDynamic: true
+    });
+  }
+  else if (problemTitle.includes("Palindrome")) {
+    // Add dynamic palindrome tests
+    extendedTestCases.push({
+      input: "level",
+      expectedOutput: "true",
+      isDynamic: true
+    });
+    extendedTestCases.push({
+      input: "claude",
+      expectedOutput: "false",
+      isDynamic: true
+    });
+  }
+  else if (problemTitle.includes("Maximum") || problemTitle.includes("Find Maximum")) {
+    // Add dynamic max tests
+    extendedTestCases.push({
+      input: "[10,45,32,76,12]",
+      expectedOutput: "76",
+      isDynamic: true
+    });
+  }
+  else if (problemTitle.includes("Minimum") || problemTitle.includes("Find Minimum")) {
+    // Add dynamic min tests
+    extendedTestCases.push({
+      input: "[21,17,45,9,88]",
+      expectedOutput: "9",
+      isDynamic: true
+    });
+  }
+  else if (problemTitle.includes("Vowels")) {
+    // Add dynamic vowel counting tests
+    extendedTestCases.push({
+      input: "beautiful",
+      expectedOutput: "5",
+      isDynamic: true
+    });
+  }
+  // Add more dynamic tests for other problem types as needed
+  
+  return extendedTestCases;
+}
+
+// Improved JavaScript wrapper that extracts and calls the user's function
+function wrapJavaScriptCode(code, testCase) {
+  // Look for console.log statements that directly output the expected result
+  const hardcodingPattern = new RegExp(`console\\.log\\(['"\`]${testCase.expectedOutput}['"\`]\\)`, 'i');
+  
+  // Detect direct hardcoding attempts
+  if (hardcodingPattern.test(code)) {
+    return `
+      console.log("Error: Direct hardcoding of test case answers is not allowed.");
+      process.exit(1);
+    `;
+  }
+  
+  return `
+    // Original user code
+    ${code}
+    
+    // Test case runner
+    const input = \`${testCase.input}\`.trim();
+    
+    // Inspect if the code has required solution patterns
+    const codeStr = \`${code.replace(/`/g, '\\`')}\`;
+    
+    // Check for function declarations
+    const hasFunctionDeclaration = /function\\s+([a-zA-Z0-9_]+)\\s*\\(/.test(codeStr);
+    const hasArrowFunction = /const\\s+([a-zA-Z0-9_]+)\\s*=\\s*\\([^)]*\\)\\s*=>/.test(codeStr);
+    const hasMethodDefinition = /([a-zA-Z0-9_]+)\\s*\\([^)]*\\)\\s*{/.test(codeStr);
+    
+    if (!(hasFunctionDeclaration || hasArrowFunction || hasMethodDefinition)) {
+      console.log("Error: Your solution must define a function");
+      process.exit(1);
+    }
+    
+    // Extract the function name
+    let functionName = "";
+    let functionNameMatch;
+    
+    if (functionNameMatch = /function\\s+([a-zA-Z0-9_]+)\\s*\\(/.exec(codeStr)) {
+      functionName = functionNameMatch[1];
+    } else if (functionNameMatch = /const\\s+([a-zA-Z0-9_]+)\\s*=\\s*\\([^)]*\\)\\s*=>/.exec(codeStr)) {
+      functionName = functionNameMatch[1];
+    } else if (functionNameMatch = /let\\s+([a-zA-Z0-9_]+)\\s*=\\s*\\([^)]*\\)\\s*=>/.exec(codeStr)) {
+      functionName = functionNameMatch[1];
+    } else if (functionNameMatch = /var\\s+([a-zA-Z0-9_]+)\\s*=\\s*\\([^)]*\\)\\s*=>/.exec(codeStr)) {
+      functionName = functionNameMatch[1];
+    } else if (functionNameMatch = /([a-zA-Z0-9_]+)\\s*\\([^)]*\\)\\s*{/.exec(codeStr)) {
+      functionName = functionNameMatch[1];
+    }
+    
+    // Only execute for function found
+    if (functionName && typeof eval(functionName) === 'function') {
+      try {
+        // Execute just the current test case
+        if (input.includes("[") && input.includes("]")) {
+          // Handle array input
+          const arr = JSON.parse(input);
+          console.log(eval(\`\${functionName}(arr)\`));
+        } else if (input.includes("\\n")) {
+          // Handle multiple inputs separated by newlines
+          const inputs = input.split("\\n");
+          if (inputs.length === 2) {
+            console.log(eval(\`\${functionName}(\${inputs[0]}, \${inputs[1]})\`));
+          } else {
+            // For more parameters, we'll have to handle case by case
+            console.log(eval(\`\${functionName}(\${inputs.join(", ")})\`));
+          }
+        } else {
+          // Handle single string input
+          console.log(eval(\`\${functionName}("\${input}")\`));
+        }
+      } catch (e) {
+        console.log("Error: " + e.message);
+      }
+    } else {
+      // If we couldn't determine the function name or it's not valid,
+      // don't add our automatic execution - let existing code.log statements work
+      console.log("Function could not be automatically executed, but found function definition.");
+    }
+  `;
+}
+
+// Improved Python wrapper that extracts and calls the user's function
+function wrapPythonCode(code, testCase) {
+  // Look for print statements that directly output the expected result
+  const hardcodingPattern = new RegExp(`print\\(['"]${testCase.expectedOutput}['"]\\)`, 'i');
+  
+  // Detect direct hardcoding attempts
+  if (hardcodingPattern.test(code)) {
+    return `
+print("Error: Direct hardcoding of test case answers is not allowed.")
+import sys
+sys.exit(1)
+    `;
+  }
+  
+  return `
+# Original user code
+${code}
+
+# Test case runner
+input_data = """${testCase.input}"""
+
+# Inspect if the code has required solution patterns
+code_str = """${code.replace(/"/g, '\\"')}"""
+
+# Check for function declarations
+import re
+has_function = "def " in code_str
+
+if not has_function:
+    print("Error: Your solution must define a function")
+    import sys
+    sys.exit(1)
+
+# Extract function name
+function_match = re.search(r'def\\s+([a-zA-Z0-9_]+)\\s*\\(', code_str)
+function_name = None
+
+if function_match:
+    function_name = function_match.group(1)
+    
+    # Auto-execute the function with the test input if we found a name
+    try:
+        # Handle different input types
+        if '[' in input_data and ']' in input_data:
+            # Array input
+            import json
+            arr = json.loads(input_data)
+            exec(f"print({function_name}(arr))")
+        elif '\\n' in input_data:
+            # Multiple inputs
+            inputs = input_data.split('\\n')
+            if len(inputs) == 2:
+                exec(f"print({function_name}({inputs[0]}, {inputs[1]}))")
+            else:
+                # For more parameters
+                exec(f"print({function_name}({', '.join(inputs)}))")
+        else:
+            # Single string input
+            exec(f"print({function_name}('{input_data}'))")
+    except Exception as e:
+        print(f"Error: {str(e)}")
+  `;
+}
+
+// Improved Java wrapper that detects and runs the user's method
+function wrapJavaCode(code, testCase) {
+  // Look for System.out.println statements that directly output the expected result
+  const hardcodingPattern = new RegExp(`System\\.out\\.println\\(["\']${testCase.expectedOutput}["\']\\)`, 'i');
+  
+  // Detect direct hardcoding attempts
+  if (hardcodingPattern.test(code)) {
+    return `
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("Error: Direct hardcoding of test case answers is not allowed.");
+        System.exit(1);
+    }
+}
+    `;
+  }
+  
+  // Look for method declaration in the code
+  const methodMatch = /public\s+static\s+(\w+)\s+(\w+)\s*\([^)]*\)/.exec(code);
+  
+  if (methodMatch) {
+    const returnType = methodMatch[1];
+    const methodName = methodMatch[2];
+    
+    // Create a more robust wrapper that calls the user's method
+    return `
+public class Main {
+    public static void main(String[] args) {
+        // Test case input
+        String input = "${testCase.input}";
+        
+        // Original user code - method will be here
+        ${code.includes("public class Main") ? "" : code}
+        
+        // Call the user's method with the test input
+        try {
+            ${returnType === "void" ? `${methodName}(input);` : `System.out.println(${methodName}(input));`}
+        } catch (Exception e) {
+            System.out.println("Error executing solution: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    // If user code doesn't contain the Main class already, include it here
+    ${code.includes("public class Main") ? code : ""}
+}`;
+  } else {
+    // If we can't find a clear method pattern, just wrap their code
+    return `
+public class Main {
+    public static void main(String[] args) {
+        // Test case input
+        String input = "${testCase.input}";
+        
+        // Check for method declarations
+        String codeStr = "${code.replace(/"/g, '\\"')}";
+        boolean hasMethod = codeStr.matches(".*public\\\\s+[a-zA-Z0-9_<>]+\\\\s+[a-zA-Z0-9_]+\\\\s*\\\\([^\\\\)]*\\\\).*");
+        
+        if (!hasMethod) {
+            System.out.println("Error: Your solution must define a method");
+            System.exit(1);
+        }
+        
+        // Original user code
+        ${code.includes("public class Main") ? "" : code}
+    }
+    
+    ${code.includes("public class Main") ? code : ""}
+}`;
+  }
 }
 
 export default function ProblemDetail({ params }) {
@@ -235,7 +614,8 @@ export default function ProblemDetail({ params }) {
       setIsSubmitting(true);
       setResults({ type: "loading", message: "Testing your solution..." });
 
-      const validation = await validateSolution(code, problem.testCases, selectedLanguage);
+      // Updated to pass problem title to the validation function
+      const validation = await validateSolution(code, problem.testCases, selectedLanguage, problem.title);
       await handleSubmission(validation);
     } catch (error) {
       console.error("Validation error:", error);
@@ -373,198 +753,203 @@ export default function ProblemDetail({ params }) {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-              <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Problem Statement</h3>
-              <pre className="whitespace-pre-wrap text-gray-600 dark:text-gray-400 leading-relaxed">{problem.statement}</pre>
-            </div>
+          // Continuation of the ProblemDetail.jsx file from where it cut off:
 
-            {showHints && (
-              <div className="bg-yellow-50/50 dark:bg-yellow-900/20 rounded-xl p-6 shadow-sm border border-yellow-100 dark:border-yellow-900/30">
-                <h3 className="text-lg font-semibold mb-3 text-yellow-800 dark:text-yellow-200">
-                  <BookOpen className="w-5 h-5 inline-block mr-2" />
-                  Hints & Guidance
-                </h3>
-                <ul className="space-y-3 text-yellow-700 dark:text-yellow-300">
-                  <li className="flex items-start">
-                    <span className="text-yellow-500 mr-2">•</span>
-                    Consider different edge cases and boundary conditions
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-yellow-500 mr-2">•</span>
-                    Analyze time and space complexity before implementing
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-yellow-500 mr-2">•</span>
-                    Break the problem into smaller, manageable functions
-                  </li>
-                </ul>
-              </div>
-            )}
+<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+  <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Problem Statement</h3>
+  <pre className="whitespace-pre-wrap text-gray-600 dark:text-gray-400 leading-relaxed">{problem.statement}</pre>
+</div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">Your Notes</h3>
-              <textarea
-                className="w-full h-32 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                placeholder="Jot down your thoughts, observations, or approach..."
-                value={userNotes}
-                onChange={(e) => setUserNotes(e.target.value)}
-              />
-            </div>
+{showHints && (
+  <div className="bg-yellow-50/50 dark:bg-yellow-900/20 rounded-xl p-6 shadow-sm border border-yellow-100 dark:border-yellow-900/30">
+    <h3 className="text-lg font-semibold mb-3 text-yellow-800 dark:text-yellow-200">
+      <BookOpen className="w-5 h-5 inline-block mr-2" />
+      Hints & Guidance
+    </h3>
+    <ul className="space-y-3 text-yellow-700 dark:text-yellow-300">
+      <li className="flex items-start">
+        <span className="text-yellow-500 mr-2">•</span>
+        Consider different edge cases and boundary conditions
+      </li>
+      <li className="flex items-start">
+        <span className="text-yellow-500 mr-2">•</span>
+        Analyze time and space complexity before implementing
+      </li>
+      <li className="flex items-start">
+        <span className="text-yellow-500 mr-2">•</span>
+        Break the problem into smaller, manageable functions
+      </li>
+    </ul>
+  </div>
+)}
+
+<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+  <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">Your Notes</h3>
+  <textarea
+    className="w-full h-32 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+    placeholder="Jot down your thoughts, observations, or approach..."
+    value={userNotes}
+    onChange={(e) => setUserNotes(e.target.value)}
+  />
+</div>
+</div>
+
+<div className="space-y-6">
+<div className="rounded-xl overflow-hidden shadow-lg">
+  <div className="flex items-center justify-between bg-gray-800 dark:bg-gray-700 px-4 py-3">
+    <div className="flex items-center gap-2">
+      <Terminal className="w-5 h-5 text-green-400" />
+      <select
+        value={selectedLanguage}
+        onChange={(e) => setSelectedLanguage(e.target.value)}
+        className="bg-transparent text-gray-300 font-mono text-sm focus:outline-none"
+      >
+        {LANGUAGES.map((lang) => (
+          <option key={lang.value} value={lang.value} className="text-black dark:text-white">
+            {lang.name}
+          </option>
+        ))}
+      </select>
+    </div>
+    <div className="flex items-center gap-3">
+      <button
+        onClick={() => setCode(LANGUAGES.find((lang) => lang.value === selectedLanguage).initialCode)}
+        className="p-2 hover:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors text-gray-300 hover:text-white"
+      >
+        <RefreshCcw className="w-5 h-5" />
+      </button>
+    </div>
+  </div>
+  <CodeEditor
+    initialCode={code}
+    language={selectedLanguage}
+    onChange={setCode}
+    fontSize={fontSize}
+  />
+</div>
+
+<div className="flex gap-4">
+  <button
+    onClick={handleRunCode}
+    className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-all"
+    disabled={isSubmitting}
+  >
+    <span>Run Code</span>
+  </button>
+  <button
+    onClick={handleSubmitSolution}
+    className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all"
+    disabled={isSubmitting || !user}
+  >
+    {isSubmitting ? (
+      <>
+        <LoadingSpinner className="w-5 h-5" />
+        <span>Submitting...</span>
+      </>
+    ) : (
+      <>
+        <CheckCircle className="w-5 h-5" />
+        <span>Submit Solution</span>
+      </>
+    )}
+  </button>
+</div>
+
+{results && (
+  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+    {results.type === "loading" && (
+      <div className="flex items-center justify-center gap-3 py-4">
+        <LoadingSpinner className="w-6 h-6 text-blue-500" />
+        <span className="text-gray-600 dark:text-gray-400">{results.message}</span>
+      </div>
+    )}
+
+    {results.type === "run" && (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Terminal className="w-5 h-5 text-gray-500" />
+          <h4 className="font-semibold text-gray-800 dark:text-gray-200">Execution Output</h4>
+        </div>
+        <pre className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg text-sm font-mono text-gray-800 dark:text-gray-300 whitespace-pre-wrap">
+          {results.output || "No output"}
+        </pre>
+      </div>
+    )}
+
+    {results.type === "submit" && (
+      <div className="space-y-6">
+        <div className={`flex items-center gap-3 p-4 rounded-lg ${results.correct ? 
+          "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800" : 
+          "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"}`}>
+          {results.correct ? (
+            <CheckCircle className="w-8 h-8 text-green-500" />
+          ) : (
+            <XCircle className="w-8 h-8 text-red-500" />
+          )}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+              {results.correct ? "Solution Accepted!" : "Submission Failed"}
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">{results.message}</p>
+            <p className="mt-2 text-sm font-mono">
+              Passed {results.passedCount}/{results.totalTests} test cases
+            </p>
           </div>
+        </div>
 
-          <div className="space-y-6">
-            <div className="rounded-xl overflow-hidden shadow-lg">
-              <div className="flex items-center justify-between bg-gray-800 dark:bg-gray-700 px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <Terminal className="w-5 h-5 text-green-400" />
-                  <select
-                    value={selectedLanguage}
-                    onChange={(e) => setSelectedLanguage(e.target.value)}
-                    className="bg-transparent text-gray-300 font-mono text-sm focus:outline-none"
-                  >
-                    {LANGUAGES.map((lang) => (
-                      <option key={lang.value} value={lang.value} className="text-black dark:text-white">
-                        {lang.name}
-                      </option>
-                    ))}
-                  </select>
+        <div className="space-y-4">
+          <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Test Case Results</h4>
+          <div className="space-y-3">
+            {results.results.map((result, idx) => (
+              <div
+                key={idx}
+                className={`p-4 rounded-lg border ${
+                  result.passed
+                    ? "border-green-100 dark:border-green-900/30 bg-green-50/50 dark:bg-green-900/10"
+                    : "border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10"
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  {result.passed ? (
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <XCircle className="w-4 h-4 text-red-500" />
+                  )}
+                  <span className="font-medium">Case {idx + 1}</span>
+                  {result.isDynamic && (
+                    <span className="text-xs text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full">Dynamic Test</span>
+                  )}
                 </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setCode(LANGUAGES.find((lang) => lang.value === selectedLanguage).initialCode)}
-                    className="p-2 hover:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors text-gray-300 hover:text-white"
-                  >
-                    <RefreshCcw className="w-5 h-5" />
-                  </button>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="text-gray-600 dark:text-gray-400">Input:</div>
+                  <div className="font-mono">{result.input || "None"}</div>
+                  <div className="text-gray-600 dark:text-gray-400">Expected:</div>
+                  <div className="font-mono">{result.expected}</div>
+                  <div className="text-gray-600 dark:text-gray-400">Output:</div>
+                  <div className="font-mono">{result.output}</div>
+                </div>
+                <div className="flex gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  <span>Time: {result.executionTime}ms</span>
+                  <span>Memory: {result.memoryUsage}KB</span>
                 </div>
               </div>
-              <CodeEditor
-                initialCode={code}
-                language={selectedLanguage}
-                onChange={setCode}
-                fontSize={fontSize}
-              />
-            </div>
-
-            <div className="flex gap-4">
-              <button
-                onClick={handleRunCode}
-                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-all"
-                disabled={isSubmitting}
-              >
-                <span>Run Code</span>
-              </button>
-              <button
-                onClick={handleSubmitSolution}
-                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all"
-                disabled={isSubmitting || !user}
-              >
-                {isSubmitting ? (
-                  <>
-                    <LoadingSpinner className="w-5 h-5" />
-                    <span>Submitting...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-5 h-5" />
-                    <span>Submit Solution</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            {results && (
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-                {results.type === "loading" && (
-                  <div className="flex items-center justify-center gap-3 py-4">
-                    <LoadingSpinner className="w-6 h-6 text-blue-500" />
-                    <span className="text-gray-600 dark:text-gray-400">{results.message}</span>
-                  </div>
-                )}
-
-                {results.type === "run" && (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Terminal className="w-5 h-5 text-gray-500" />
-                      <h4 className="font-semibold text-gray-800 dark:text-gray-200">Execution Output</h4>
-                    </div>
-                    <pre className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg text-sm font-mono text-gray-800 dark:text-gray-300 whitespace-pre-wrap">
-                      {results.output || "No output"}
-                    </pre>
-                  </div>
-                )}
-
-                {results.type === "submit" && (
-                  <div className="space-y-6">
-                    <div className={`flex items-center gap-3 p-4 rounded-lg ${results.correct ? 
-                      "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800" : 
-                      "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"}`}>
-                      {results.correct ? (
-                        <CheckCircle className="w-8 h-8 text-green-500" />
-                      ) : (
-                        <XCircle className="w-8 h-8 text-red-500" />
-                      )}
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                          {results.correct ? "Solution Accepted!" : "Submission Failed"}
-                        </h3>
-                        <p className="text-gray-600 dark:text-gray-400">{results.message}</p>
-                        <p className="mt-2 text-sm font-mono">
-                          Passed {results.passedCount}/{results.totalTests} test cases
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Test Case Results</h4>
-                      <div className="space-y-3">
-                        {results.results.map((result, idx) => (
-                          <div
-                            key={idx}
-                            className={`p-4 rounded-lg border ${
-                              result.passed
-                                ? "border-green-100 dark:border-green-900/30 bg-green-50/50 dark:bg-green-900/10"
-                                : "border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10"
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 mb-2">
-                              {result.passed ? (
-                                <CheckCircle className="w-4 h-4 text-green-500" />
-                              ) : (
-                                <XCircle className="w-4 h-4 text-red-500" />
-                              )}
-                              <span className="font-medium">Case {idx + 1}</span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2 text-sm">
-                              <div className="text-gray-600 dark:text-gray-400">Input:</div>
-                              <div className="font-mono">{result.input || "None"}</div>
-                              <div className="text-gray-600 dark:text-gray-400">Expected:</div>
-                              <div className="font-mono">{result.expected}</div>
-                              <div className="text-gray-600 dark:text-gray-400">Output:</div>
-                              <div className="font-mono">{result.output}</div>
-                            </div>
-                            <div className="flex gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                              <span>Time: {result.executionTime}ms</span>
-                              <span>Memory: {result.memoryUsage}KB</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {results.type === "error" && (
-                  <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-                    <XCircle className="w-6 h-6 text-red-500" />
-                    <div className="text-red-600 dark:text-red-400">{results.message}</div>
-                  </div>
-                )}
-              </div>
-            )}
+            ))}
           </div>
         </div>
       </div>
-    </div>
-  );
+    )}
+
+    {results.type === "error" && (
+      <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+        <XCircle className="w-6 h-6 text-red-500" />
+        <div className="text-red-600 dark:text-red-400">{results.message}</div>
+      </div>
+    )}
+  </div>
+)}
+</div>
+</div>
+</div>
+</div>
+);
 }
