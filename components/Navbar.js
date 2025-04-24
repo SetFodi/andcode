@@ -182,7 +182,7 @@ export default function Navbar() {
 
                 {/* GitHub Link */}
                 <a 
-                  href="https://github.com/andcode/coding-challenges" 
+                  href="https://github.com/SetFodi" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
