@@ -130,8 +130,6 @@ export default function Navbar() {
                     {[
                       { name: "Problems", path: "/problems", icon: <BookOpen className="w-4 h-4" /> },
                       { name: "Forum", path: "/forum", icon: <MessageSquare className="w-4 h-4" /> },
-                      { name: "Contests", path: "/contests", icon: <Award className="w-4 h-4" /> },
-                      { name: "Learn", path: "/learn", icon: <Terminal className="w-4 h-4" /> },
                     ].map((item) => (
                       <Link 
                         key={item.path}
@@ -363,8 +361,6 @@ export default function Navbar() {
                   {[
                     { name: "Problems", path: "/problems", icon: <BookOpen className="w-5 h-5" /> },
                     { name: "Forum", path: "/forum", icon: <MessageSquare className="w-5 h-5" /> },
-                    { name: "Contests", path: "/contests", icon: <Award className="w-5 h-5" /> },
-                    { name: "Learn", path: "/learn", icon: <Terminal className="w-5 h-5" /> },
                   ].map((item) => (
                     <Link 
                       key={item.path}
